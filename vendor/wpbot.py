@@ -6,7 +6,7 @@ wp_bot = [
         'bot_name': 'FilesPan1Bot',
         'id': '7174271897',  # 6854050358
         'mode': 'enctext',
-        'pattern': r'(?:p_FilesPan1Bot_|v_FilesPan1Bot_|d_FilesPan1Bot_)[a-zA-Z0-9-_]{30,100}\b',
+        'pattern': r'(?:p_FilesPan1Bot_|v_FilesPan1Bot_|d_FilesPan1Bot_)[a-zA-Z0-9-_]{30,100}(?![a-zA-Z0-9-_])',
         'message_thread_id': '23'
     },
    
@@ -15,7 +15,7 @@ wp_bot = [
         'bot_name': 'FilesDrive_BLGA_bot',
         'id': '7485716743',  # 6854050358
         'mode': 'enctext',
-        'pattern': r'(?:p_|vi_|f_|fds_)[a-zA-Z0-9-_]{30,100}\b',
+        'pattern': r'(?:p_|vi_|f_|fds_)[a-zA-Z0-9-_]{30,100}(?![a-zA-Z0-9-_])',
         'message_thread_id': '23'
     },
     {
@@ -23,7 +23,7 @@ wp_bot = [
         'bot_name': 'MediaBK5Bot',
         'id': '6700909600',
         'mode': 'enctext',
-        'pattern': r'\b[a-zA-Z0-9\-+=_]{20,33}(?:=_grp|_mda)\b',
+        'pattern': r'\b[a-zA-Z0-9\-+=_]{20,33}(?:=_grp|_mda)(?![a-zA-Z0-9-_])',
         'message_thread_id': '32'
     },
     {
@@ -31,7 +31,7 @@ wp_bot = [
         'bot_name': 'ShowFilesBot',
         'id': '6976547743',  # 6854050358
         'mode': 'enctext',
-        'pattern': r'(?:showfilesbot_|fds_)[a-zA-Z0-9-_]{15,29}\b',
+        'pattern': r'(?:showfilesbot_|fds_)[a-zA-Z0-9-_]{15,29}(?![a-zA-Z0-9-_])',
         'message_thread_id': '27'
     },
     {
@@ -39,7 +39,7 @@ wp_bot = [
         'bot_name': 'datapanbot',
         'id': '6854050358',  # 6854050358
         'mode': 'enctext',
-        'pattern': r'(?:P_DataPanBot_|V_DataPanBot_|D_DataPanBot_|fds_|pk_)[a-zA-Z0-9-_]{30,100}\b',
+        'pattern': r'(?:P_DataPanBot_|V_DataPanBot_|D_DataPanBot_|fds_|pk_)[a-zA-Z0-9-_]{30,100}(?![a-zA-Z0-9-_])',
         'message_thread_id': '28'
     },
      {
@@ -47,7 +47,7 @@ wp_bot = [
         'bot_name': 'FileSaveNewBot',
         'id': '7008164392',  # 6854050358
         'mode': 'enctext',
-        'pattern': r'(?:^|\s)(?:P_|V_|D_)[a-zA-Z0-9-_]{15,29}\b',
+        'pattern': r'(?:^|\s)(?:P_|V_|D_)[a-zA-Z0-9-_]{15,29}(?![a-zA-Z0-9-_])',
         'message_thread_id': '25'
     },
     {
