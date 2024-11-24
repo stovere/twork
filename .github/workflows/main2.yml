@@ -2,7 +2,7 @@ name: Deploy 2
 
 on: 
   schedule:
-    - cron: '*/33 * * * *'
+    - cron: '*/30 * * * *'
   push: 
     branches: 
       - master  # 当推送到 master 分支时触发
@@ -28,7 +28,7 @@ jobs:
         script: |
             const currentRunId = context.runId;  // 当前工作流的运行ID
             const workflowId = 'main2.yml';      // 替换为你的工作流文件名
-            const maxRetries = 25;               // 最大重试次数
+            const maxRetries = 28;               // 最大重试次数
             let retries = 0;
 
             while (retries < maxRetries) {
