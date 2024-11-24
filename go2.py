@@ -154,6 +154,10 @@ async def handle_database_operations(match):
     return datapan.get_or_none(datapan.enc_str == match)
 
 async def handle_bot_message(update: Update, context) -> None:
+    if not update.message:
+        print("Update does not contain a message object.")
+        return
+
     message = update.message
     reply_to_message_id = message.message_id
     response = ''
@@ -238,10 +242,18 @@ async def handle_bot_message(update: Update, context) -> None:
                                 reply_caption = f"<code>{encode_text}</code>"
                                 # reply_caption = f"<code>{encoder.encode(result.file_unique_id, result.file_id, config['bot_username'], result.file_type)}</code>"
                                 
-                                await context.bot.send_message(
-                                    chat_id=man_bot_id,
-                                    text=encode_text
-                                )
+                                try:
+                                    print(f"Received text message from man_bot_id {man_bot_id}")
+                                    await context.bot.send_message(
+                                        chat_id=man_bot_id,
+                                        text=encode_text
+                                    )
+                                except Exception as e:
+                                    print(f"Error while sending message: {e}")
+                                    traceback.print_exc()
+
+
+                                
 
                                 if result.file_type == 'photo':
                                     await context.bot.send_photo(
@@ -462,7 +474,7 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
         else:
             entity_title = f'Unknown entity {entity.id}'
 
-        if dialog.unread_count >= 0 and (dialog.is_group or dialog.is_channel or dialog.is_user):
+        if dialog.unread_count > 0 and (dialog.is_group or dialog.is_channel or dialog.is_user):
             count_per_chat = 0
             time.sleep(0.5)  # 每次请求之间等待0.5秒
             last_read_message_id = tgbot.load_last_read_message_id(entity.id)
