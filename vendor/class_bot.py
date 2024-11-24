@@ -295,7 +295,7 @@ class LYClass:
                             document = response.media.document
                             await client.send_file(chat_id, document, reply_to=message.id)
                           
-                            print(">>>Reply with document .")
+                            print(">>>Reply with document.")
 
                             #如果 chat_id 不是 work_chat_id，则将视频发送到 qing bot
                             if chat_id != self.config['work_chat_id']:

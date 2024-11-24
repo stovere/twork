@@ -280,9 +280,23 @@ async def main():
                                 break
 
 
-                            await tgbot.process_by_check_text(message,'tobot')
-                            media_count = media_count + 1
-                            count_per_chat = count_per_chat +1
+                            query = await tgbot.process_by_check_text(message, 'query')
+                            if query:
+                                for bot_result in query['results']:
+                                    if isinstance(bot_result, dict):
+                                        if(bot_result['title'] == 'salai'):
+                                            
+                                            await tgbot.client.delete_messages(
+                                                entity=entity.id,  # 对话的 chat_id
+                                                message_ids=message.id  # 刚刚发送消息的 ID
+                                            )
+
+
+                                        else:
+                                            await tgbot.process_by_check_text(message, 'tobot')
+                                            media_count += 1
+                                            count_per_chat += 1
+
                         elif dialog.is_group or dialog.is_channel:
                         
                             if entity.id in enclist:

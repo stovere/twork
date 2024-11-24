@@ -10,7 +10,7 @@ from telegram import Update
 import telegram
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram.constants import ParseMode
-
+from telegram.error import RetryAfter
 from vendor.class_bot import LYClass  # 导入 LYClass
 from vendor.wpbot import wp_bot  # 导入 wp_bot
 import asyncio
@@ -280,6 +280,12 @@ async def handle_bot_message(update: Update, context) -> None:
                                 chat_id=f"-100{config['work_chat_id']}",
                                 text=match
                             )
+                    except RetryAfter as e:
+                        retry_after = int(e.retry_after)
+                        print(f"Flood control exceeded. Pausing for {retry_after} seconds.")
+                        await asyncio.sleep(retry_after)
+                        print("Resuming operation after pause.")
+                    
                     except Exception as e:
                         print(f"An unexpected error occurred: {e}", flush=True)
                         traceback.print_exc()
