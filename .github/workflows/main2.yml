@@ -144,6 +144,7 @@ jobs:
         DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
+        MAN_BOT_ID: ${{ secrets.MAN_BOT_ID }}
       run: |
         python go2.py
 
