@@ -1,4 +1,5 @@
 import asyncio
+import base64
 from collections import defaultdict
 import json
 import os
@@ -444,7 +445,14 @@ class LYClass:
             json.dump(data, file)
 
     def load_last_read_message_id(self, chat_id):
-        if os.path.exists(self.LAST_READ_MESSAGE_FILE):
+        
+        if self.setting.get('last_read_message_content'):
+            decoded_data = base64.urlsafe_b64decode(self.setting['last_read_message_content'].encode('utf-8'))
+            original_content = json.loads(decoded_data.decode('utf-8'))
+            return original_content.get(str(chat_id), 0)  # 返回 0 作为默认值
+            
+
+        elif os.path.exists(self.LAST_READ_MESSAGE_FILE):
             with open(self.LAST_READ_MESSAGE_FILE, 'r') as file:
                 data = json.load(file)
                 return data.get(str(chat_id), 0)  # 返回 0 作为默认值
@@ -456,6 +464,22 @@ class LYClass:
                 data = json.load(file)
                 return data
         return 0
+
+    async def load_tg_setting(self, chat_id):
+        try:
+            chat_entity = await self.client.get_entity(chat_id)
+            # print(f"Chat entity found: {chat_entity}")
+        except Exception as e:
+            print(f"Invalid chat_id: {e}")
+
+
+        # 获取指定聊天的消息，限制只获取一条最新消息
+        async for message in self.client.iter_messages(chat_id, limit=1):
+            if not message or not message.text:
+                return "No messages found."
+            return json.loads(message.text)
+        
+
 
     async def join_channel_from_link(self, client, invite_link):
         try:
@@ -582,21 +606,21 @@ class LYClass:
                     if isinstance(message.media, types.MessageMediaDocument):
                         if not any(isinstance(attr, types.DocumentAttributeSticker) for attr in message.media.document.attributes):
                             # 排除贴图
-                            print(f">>>Forwarding document to warehouse chat: {message.id}\n")
+                            print(f">>>Forwarding document to warehouse chat: {message.id}\n", flush=True)
                             last_message_id = await self.send_message(client, message)
                             if_send=True
                     elif isinstance(message.media, types.MessageMediaPhoto):
-                        print(f">>>Forwarding photo to warehouse chat: {message.id}\n")
+                        print(f">>>Forwarding photo to warehouse chat: {message.id}\n", flush=True)
                         last_message_id = await self.send_message(client, message)
                         if_send=True
                     
                     
                 else:
-                    print(f"Message is from warehouse chat, not forwarding: {message.id}\n")
+                    print(f"Message is from warehouse chat, not forwarding: {message.id}\n", flush=True)
             else:
-                print(f"No matching pattern for message: {message.text} {message} \n")
+                print(f"No matching pattern for message: {message.text} {message} \n", flush=True)
         except Exception as e:
-            print(f">>(2)An error occurred while processing message: {e} \n message:{message}\n")
+            print(f">>(2)An error occurred while processing message: {e} \n message:{message}\n", flush=True)
         finally:
             if if_send:
                 await asyncio.sleep(3)

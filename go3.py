@@ -1,4 +1,6 @@
 
+import base64
+import json
 import os
 from telethon import TelegramClient,functions
 from telethon.tl.types import InputMessagesFilterEmpty, Message, User, Chat, Channel, MessageMediaWebPage
@@ -11,8 +13,6 @@ from telethon.errors import UserNotParticipantError
 from telethon import TelegramClient, events
 from telethon.tl.functions.messages import AddChatUserRequest, CreateChatRequest
 from telethon.errors import ChatAdminRequiredError, UserAlreadyParticipantError
-
-
 
 from telegram import Update 
 
@@ -68,13 +68,16 @@ try:
         'link_chat_id': int(os.getenv('LINK_CHAT_ID', 0)),
         'key_word': os.getenv('KEY_WORD'),
         'show_caption': os.getenv('SHOW_CAPTION'),
-        'bot_username' : os.getenv('BOT_USERNAME')
+        'bot_username' : os.getenv('BOT_USERNAME'),
+        'configure_chat_id': -940026976
     }
 
+    
+
     #max_process_time 設為 600 秒，即 10 分鐘
-    max_process_time = 6000  # 25分钟
+    max_process_time = 60*27  # 25分钟
     max_media_count = 55  # 10个媒体文件
-    max_count_per_chat = 11  # 每个对话的最大消息数
+    max_count_per_chat = 12  # 每个对话的最大消息数
     # max_break_time = 90  # 休息时间
     max_break_time = 60  # 休息时间
 
@@ -85,7 +88,8 @@ try:
     
    
 except ValueError:
-    print("Environment variable WORK_CHAT_ID or WAREHOUSE_CHAT_ID is not a valid integer.", flush=True)
+    print(f"A ValueError occurred: {e}", flush=True)
+   
     exit(1)
 
 
@@ -187,25 +191,33 @@ async def create_group():
 
 
 async def get_latest_message(chat_id: int):
+
+    try:
+        chat_entity = await client.get_entity(chat_id)
+        print(f"Chat entity found: {chat_entity}")
+    except Exception as e:
+        print(f"Invalid chat_id: {e}")
+
+
     # 获取指定聊天的消息，限制只获取一条最新消息
     async for message in client.iter_messages(chat_id, limit=1):
         if not message or not message.text:
             return "No messages found."
         
-        # 按行读取 message.text 的内容，并载入到 config 中
-        for line in message.text.splitlines():
-            if ':' in line:
-                index, value = line.split(':', 1)  # 分割成 index 和 value
-                index = index.strip()  # 去掉空格
-                value = value.strip()  # 去掉空格
-                
-                # 尝试将 value 转换为整数并存入 config 中
-                try:
-                    config[index] = int(value)
-                except ValueError:
-                    config[index] = value  # 如果不能转换为整数，保留原字符串值
-        print(f"{config}", flush=True)
-        return "Config updated with latest message content."
+    # 按行读取 message.text 的内容，并载入到 config 中
+    for line in message.text.splitlines():
+        if ':' in line:
+            index, value = line.split(':', 1)  # 分割成 index 和 value
+            index = index.strip()  # 去掉空格
+            value = value.strip()  # 去掉空格
+            
+            # 尝试将 value 转换为整数并存入 config 中
+            try:
+                config[index] = int(value)
+            except ValueError:
+                config[index] = value  # 如果不能转换为整数，保留原字符串值
+    print(f"{config}", flush=True)
+    return "Config updated with latest message content."
 
 
 
@@ -229,8 +241,15 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
             continue
 
         # 设一个黑名单列表，如果 entity.id 在黑名单列表中，则跳过
-        blacklist = [2022425523,827297596,2064344135,2252083262,1951405593,7361527575]
-       
+        blacklist = [
+            777000,     #Telegram
+            93372553,   #BotFather
+            2141416413, #DataPanHome
+            2233580528, #FilesPan1Home
+            7386890195,  #mediabk4bot
+            2143443716  #/XP Account
+            ]
+        
         skip_vaildate_list = [2201450328]
 
         if entity.id in blacklist:
@@ -245,10 +264,13 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
         else:
             entity_title = f'Unknown entity {entity.id}'
 
-        if dialog.unread_count > 0 and (dialog.is_group or dialog.is_channel or dialog.is_user):
+        if dialog.unread_count >= 0 and (dialog.is_group or dialog.is_channel or dialog.is_user):
             count_per_chat = 0
             time.sleep(0.5)  # 每次请求之间等待0.5秒
             last_read_message_id = tgbot.load_last_read_message_id(entity.id)
+
+          
+
             print(f"\r\n>Reading messages from entity {entity.id}/{entity_title} - {last_read_message_id} - U:{dialog.unread_count} \n", flush=True)
 
             async for message in client.iter_messages(entity, min_id=last_read_message_id, limit=50, reverse=True, filter=InputMessagesFilterEmpty()):
@@ -270,7 +292,7 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
                             NEXT_DIALOGS = True
                             break
 
-                        #last_message_id = await tgbot.forward_media_to_warehouse(client, message)
+                        last_message_id = await tgbot.forward_media_to_warehouse(client, message)
                         media_count += 1
                         count_per_chat += 1
                         last_read_message_id = last_message_id
@@ -332,10 +354,6 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
                             if isinstance(entity, Channel) or isinstance(entity, Chat):
                                 entity_title = entity.title
 
-                            
-
-                                
-                        
 
                 tgbot.save_last_read_message_id(entity.id, last_message_id)
 
@@ -352,6 +370,7 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
 
     if NEXT_CYCLE:
         print(f"\nExecution time exceeded {int(max_process_time)} seconds. Stopping. T:{int(elapsed_time)} of {int(max_process_time)} ,C:{media_count} of {max_media_count}\n", flush=True)
+       
 
 
 
@@ -367,11 +386,11 @@ async def main():
     await application.start()
     await application.updater.start_polling()
     
-    chat_id = -940026976
-
-    latest_message = await get_latest_message(chat_id)
-    print("Latest message:", latest_message)
-
+   
+    configure_chat_id = tgbot.config['configure_chat_id']
+    
+    tgbot.setting = await tgbot.load_tg_setting(configure_chat_id)
+    # print(f"Setting: {setting}", flush=True)
     # await create_group()
     
 
@@ -387,9 +406,19 @@ async def main():
             print(f"\nStopping main loop after exceeding max_process_time of {max_process_time} seconds.\n", flush=True)
             break
 
-        loop_elapsed_time = time.time() - loop_start_time
-        if loop_elapsed_time < max_break_time:
-            await asyncio.sleep(max_break_time - loop_elapsed_time)
+        input_string = json.dumps(tgbot.get_last_read_message_content())
+        byte_data = input_string.encode('utf-8')
+        tgbot.setting['last_read_message_content'] = base64.urlsafe_b64encode(byte_data).decode('utf-8')
+       
+        print(f"Last read message content: {tgbot.setting}", flush=True)
+        config_str2 = json.dumps(tgbot.setting, indent=2)  # 转换为 JSON 字符串
+        async with client.conversation(tgbot.config['configure_chat_id']) as conv:
+            await conv.send_message(config_str2)
+
+        print("\nExecution time is " + str(int(elapsed_time)) + f" seconds. Continuing next cycle... after {max_break_time} seconds.\n\n", flush=True)
+        print(f"-\n", flush=True)
+        print(f"-------------------------------------\n", flush=True)
+        await asyncio.sleep(max_break_time)  #间隔180秒
            
 with client:
     client.loop.run_until_complete(main())

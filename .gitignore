@@ -168,6 +168,7 @@ last_read_message_id.json
 *.bat
 *.code-workspace
 *.session.enc
+*.stringsession.enc
 
 .github/workflows/main.yml
 23239948session_name.session-journal

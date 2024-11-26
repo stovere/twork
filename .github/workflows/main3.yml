@@ -1,0 +1,196 @@
+name: Deploy 3
+
+on: 
+  schedule:
+    - cron: '*/30 * * * *'
+  push: 
+    branches: 
+      - master  # 当推送到 master 分支时触发
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  run-telethon-bot:
+    runs-on: ubuntu-latest
+
+    # concurrency:
+    #   group: my-workflow-${{ github.ref }}  # 设定并发组
+    #   cancel-in-progress: true             # 保留旧的工作流，取消新的
+
+    steps:
+    # 步骤 1: Checkout 代码仓库
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check for running workflows
+      uses: actions/github-script@v6
+      id: check-running
+      with:
+        script: |
+            const currentRunId = context.runId;  // 当前工作流的运行ID
+            const workflowId = 'main3.yml';      // 替换为你的工作流文件名
+            const maxRetries = 28;               // 最大重试次数
+            let retries = 0;
+
+            while (retries < maxRetries) {
+                const { data } = await github.rest.actions.listWorkflowRuns({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    workflow_id: workflowId,
+                    status: 'in_progress',
+                    per_page: 30
+                });
+
+                // 获取所有正在运行的工作流（包括当前工作流）
+                const runningWorkflows = data.workflow_runs.filter(run => run.id);
+
+                if (runningWorkflows.length === 3) {
+                    // 如果有三个工作流正在运行，取消当前工作流
+                    core.setFailed("Three workflows are already running. Canceling current workflow.");
+                    return;
+                } else if (runningWorkflows.length === 2) {
+                    // 如果有两个工作流正在运行，等待 1 分钟后重试
+                    console.log("Two workflows are running. Retrying in 1 minute...");
+                    await new Promise(resolve => setTimeout(resolve, 60000)); // 等待 1 分钟
+                    retries++;
+                } else {
+                    // 如果只有一个工作流正在运行，继续执行
+                    console.log("Only one workflow is running. Proceeding...");
+                    break;
+                }
+            }
+
+            if (retries === maxRetries) {
+                core.setFailed("Max retries reached. Workflow did not start.");
+            }
+      continue-on-error: false   
+
+
+    
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements3.txt
+        pip install psycopg2-binary
+
+
+       
+
+    - name: Get previous workflow run ID
+      uses: actions/github-script@v6
+      id: get-previous-run-id
+      with:
+        script: |
+          const runs = await github.rest.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'main3.yml',  // 使用 main.yml 作为 workflow_id
+            per_page: 1,
+            status: 'success',
+          });
+          if (runs.data.workflow_runs.length > 0) {
+            core.setOutput('run_id', runs.data.workflow_runs[0].id);
+          } else {
+            core.setFailed('No previous successful workflow run found');
+          }
+      continue-on-error: true
+
+    - name: Download artifacts - Session
+      uses: actions/download-artifact@v4
+      with:
+        name: session_name
+        path: .
+        run-id: ${{ steps.get-previous-run-id.outputs.run_id }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+
+    - name: Download artifacts - Last_Read_Message
+      uses: actions/download-artifact@v4
+      with:
+        name: last_read_message
+        path: .
+        run-id: ${{ steps.get-previous-run-id.outputs.run_id }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+
+    - name: Decrypt Telethon session file
+      env:
+        API_ID: ${{ secrets.API_ID }}
+        SESSION_PASSWORD: ${{ secrets.SESSION_PASSWORD }}
+      run: |
+        openssl aes-256-cbc -d -pbkdf2 -in "${{ secrets.API_ID }}session_name.session.enc" -out "${{ secrets.API_ID }}session_name.session" -pass pass:"${{ secrets.SESSION_PASSWORD }}"
+
+
+    - name: Run Telethon script
+      env:
+        API_ID: ${{ secrets.API_ID }}
+        API_HASH: ${{ secrets.API_HASH }}
+        PHONE_NUMBER: ${{ secrets.PHONE_NUMBER }}
+        WORK_BOT_ID: ${{ secrets.WORK_BOT_ID }}
+        WORK_CHAT_ID: ${{ secrets.WORK_CHAT_ID }}
+        PUBLIC_BOT_ID: ${{ secrets.PUBLIC_BOT_ID }}
+        WAREHOUSE_CHAT_ID: ${{ secrets.WAREHOUSE_CHAT_ID }}
+        LINK_CHAT_ID: ${{ secrets.LINK_CHAT_ID }}
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        BOT_USERNAME: ${{ secrets.BOT_USERNAME }}
+        MAN_BOT_ID: ${{ secrets.MAN_BOT_ID }}
+      run: |
+        python go3.py
+
+    - name: Encrypt Telethon session file
+      env:
+        API_ID: ${{ secrets.API_ID }}
+        SESSION_PASSWORD: ${{ secrets.SESSION_PASSWORD }}
+      run: |
+        openssl aes-256-cbc -pbkdf2 -salt -in "${{ secrets.API_ID }}session_name.session" -out "${{ secrets.API_ID }}session_name.session.enc" -pass pass:"${{ secrets.SESSION_PASSWORD }}"
+
+    - name: Upload session_name.enc artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: session_name
+        path: ${{ secrets.API_ID }}session_name.session.enc
+
+
+    - name: Check if last_read_message_id.json was created
+      run: |
+        if [ -f last_read_message_id.json ]; then
+          echo "last_read_message_id.json was created."
+        else
+          echo "last_read_message_id.json was not created."
+        fi
+
+    - name: Upload last_read_message_id.json artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: last_read_message
+        path: last_read_message_id.json
+
+    - name: Delete old workflow runs
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # 使用个人访问令牌
+        script: |
+          const runs = await github.rest.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'main3.yml',  // 使用 main.yml 作为 workflow_id
+            per_page: 100,  // 获取最多100个运行
+          });
+
+          console.log('Found workflow runs:', runs.data.workflow_runs.length);
+
+          const runIdsToDelete = runs.data.workflow_runs.slice(4).map(run => run.id);
+
+          for (const runId of runIdsToDelete) {
+            await github.rest.actions.deleteWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId,
+            });
+            console.log(`Deleted workflow run with ID: ${runId}`);
+          }
