@@ -707,23 +707,6 @@ async def main():
     start_time = time.time()
     print(f"\nRestarting\n", flush=True)
 
-    # print(f"Bot ID: \n", flush=True)
-
-    # setting_chat_id = tgbot.config['setting_chat_id']
-    # setting_tread_id = tgbot.config['setting_tread_id']
-    
-    # tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, setting_tread_id)
-
-    # input_string = json.dumps(tgbot.get_last_read_message_content())
-    # byte_data = input_string.encode('utf-8')
-    # tgbot.setting['last_read_message_content'] = base64.urlsafe_b64encode(byte_data).decode('utf-8')
-
-    # tgbot.setting['last_read_message_content'] = tgbot.get_last_read_message_content()
-    # print(f"Setting: {tgbot.setting}", flush=True)  
-
-    # config_str2 = json.dumps(tgbot.setting, indent=2)  # 转换为 JSON 字符串
-    # async with client.conversation(tgbot.config['setting_chat_id']) as conv:
-    #     await conv.send_message(config_str2, reply_to=tgbot.config['setting_tread_id'])
 
 
     # return
@@ -770,6 +753,9 @@ async def main():
 
         loop_elapsed_time = time.time() - loop_start_time
         if loop_elapsed_time < max_break_time:
+            print("\nExecution time is " + str(int(elapsed_time)) + f" seconds. Continuing next cycle... after {max_break_time - loop_elapsed_time} seconds.\n\n", flush=True)
+        
+            print(f"-------------------------------------\n", flush=True)
             await asyncio.sleep(max_break_time - loop_elapsed_time)
            
             
