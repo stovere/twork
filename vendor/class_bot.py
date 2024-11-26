@@ -481,17 +481,20 @@ class LYClass:
 
     async def load_tg_setting(self, chat_id, message_thread_id=0):
         try:
+            chat_id = self.format_chat_id(chat_id)
             chat_entity = await self.client.get_entity(int(chat_id))
-            print(f"Chat entity found: {chat_entity}")
+            # print(f"Chat entity found: {chat_entity}")
         except Exception as e:
             print(f"Invalid chat_id: {e}")
-
+            print("Traceback:\r\n")
+            traceback.print_exc()  # 打印完整的异常堆栈信息，包含行号
+            return None  # 提前返回，避免后续逻辑报错
 
         # 获取指定聊天的消息，限制只获取一条最新消息
         # 使用 get_messages 获取指定 thread_id 的消息
         try:
             messages = await self.client.get_messages(chat_entity, limit=1, reply_to=message_thread_id)
-            print(f"Messages found: {messages}")
+            # print(f"Messages found: {messages}")
         except Exception as e:
             print(f"Error fetching messages: {e}")
             return
@@ -512,7 +515,16 @@ class LYClass:
             return json.loads("{}")
         
 
-
+    def format_chat_id(self, chat_id):
+        """
+        格式化聊天 ID，如果为正数，转换为 Telegram 内部格式
+        :param chat_id: 聊天 ID
+        :return: 格式化后的聊天 ID
+        """
+        if self.is_number(str(chat_id)):
+            if int(chat_id) > 0:
+                return f"-100{chat_id}"
+        return chat_id
 
 
     async def join_channel_from_link(self, client, invite_link):

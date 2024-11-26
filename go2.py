@@ -716,11 +716,13 @@ async def main():
     await application.updater.start_polling()
     print(f"Bot Start Polling\n", flush=True)
 
+
+
     setting_chat_id = tgbot.config['setting_chat_id']
-    setting_tread_id = tgbot.config['setting_tread_id']
-    
-    tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, setting_tread_id)
-    
+    print(f"Setting chat id: {tgbot.config}", flush=True)
+    tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, tgbot.config['setting_tread_id'])
+
+
     while True:
         loop_start_time = time.time()
         await telegram_loop(client, tgbot, max_process_time, max_media_count, max_count_per_chat)
