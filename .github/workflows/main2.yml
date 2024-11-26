@@ -2,9 +2,7 @@ name: Deploy 2
 
 on: 
   schedule:
-    - cron: '1 * * * *'    # 每小时的 1 分钟执行
-    - cron: '21 * * * *'   # 每小时的 21 分钟执行
-    - cron: '51 * * * *'   # 每小时的 51 分钟执行
+    - cron: '*/33 * * * *'  # 每33分钟触发一次
   push: 
     branches: 
       - master  # 当推送到 master 分支时触发
