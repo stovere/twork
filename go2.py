@@ -1,4 +1,6 @@
+import base64
 from collections import defaultdict
+import json
 from types import SimpleNamespace
 from telethon import TelegramClient, sync
 import os
@@ -47,7 +49,7 @@ try:
 
 
     config = {
-        'session_string': os.getenv('SESSION_STRING'),
+        #'session_string': os.getenv('SESSION_STRING'),
         'api_id': os.getenv('API_ID'),
         'api_hash': os.getenv('API_HASH'),
         'phone_number': os.getenv('PHONE_NUMBER'),
@@ -60,7 +62,9 @@ try:
         'link_chat_id': int(os.getenv('LINK_CHAT_ID', 0)),
         'key_word': os.getenv('KEY_WORD'),
         'show_caption': os.getenv('SHOW_CAPTION'),
-        'bot_username' : os.getenv('BOT_USERNAME')
+        'bot_username' : os.getenv('BOT_USERNAME'),
+        'setting_chat_id': 2030683460,
+        'setting_tread_id': 9,
     }
 
     #max_process_time 設為 600 秒，即 10 分鐘
@@ -422,9 +426,13 @@ async def handle_bot_message(update: Update, context) -> None:
 # 如果 config 有屬性 session_string，則使用 session_string 來建立 client
 if 'session_string' in config:
     session_name = StringSession(config['session_string'])
-    client = TelegramClient(session_name, config['api_id'], config['api_hash'])
+    
 else:
-    client = TelegramClient(config['session_name'], config['api_id'], config['api_hash'])
+    session_name = config['session_name']
+    
+
+
+client = TelegramClient(session_name, config['api_id'], config['api_hash'])
 
 application = Application.builder().token(bot_token).build()
 # 注册消息处理程序，处理所有消息类型
@@ -462,15 +470,14 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
        
 
         # 设一个黑名单列表，如果 entity.id 在黑名单列表中，则跳过
-        blacklist = [
-            777000,     #Telegram
-            93372553,   #BotFather
-            2141416413, #DataPanHome
-            2233580528, #FilesPan1Home
-            7386890195  #mediabk4bot
-            ]
+        blacklist = []
         enclist = []
         skip_vaildate_list = []
+
+       
+
+        if tgbot.setting['blacklist']:
+            blacklist = tgbot.setting['blacklist']
 
         if entity.id in blacklist:
             NEXT_DIALOGS = True
@@ -488,9 +495,13 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
             count_per_chat = 0
             time.sleep(0.5)  # 每次请求之间等待0.5秒
             last_read_message_id = tgbot.load_last_read_message_id(entity.id)
-            print(f"\r\n>Reading messages from entity {entity.id}/{entity_title} - {last_read_message_id} - U:{dialog.unread_count} \n", flush=True)
+            print(f">Reading messages from entity {entity.id}/{entity_title} - {last_read_message_id} - U:{dialog.unread_count} \n", flush=True)
+
+            # iter_messages = await client.get_messages(entity, limit=50, min_id=last_read_message_id, reverse=True)
+     
 
             async for message in client.iter_messages(entity, min_id=last_read_message_id, limit=50, reverse=True, filter=InputMessagesFilterEmpty()):
+            # for message in iter_messages:
                 NEXT_MESSAGE = False
                 if message.id <= last_read_message_id:
                     continue
@@ -697,11 +708,36 @@ async def main():
     start_time = time.time()
     print(f"\nRestarting\n", flush=True)
 
+    # print(f"Bot ID: \n", flush=True)
+
+    # setting_chat_id = tgbot.config['setting_chat_id']
+    # setting_tread_id = tgbot.config['setting_tread_id']
+    
+    # tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, setting_tread_id)
+
+    # input_string = json.dumps(tgbot.get_last_read_message_content())
+    # byte_data = input_string.encode('utf-8')
+    # tgbot.setting['last_read_message_content'] = base64.urlsafe_b64encode(byte_data).decode('utf-8')
+
+    # tgbot.setting['last_read_message_content'] = tgbot.get_last_read_message_content()
+    # print(f"Setting: {tgbot.setting}", flush=True)  
+
+    # config_str2 = json.dumps(tgbot.setting, indent=2)  # 转换为 JSON 字符串
+    # async with client.conversation(tgbot.config['setting_chat_id']) as conv:
+    #     await conv.send_message(config_str2, reply_to=tgbot.config['setting_tread_id'])
+
+
+    # return
     # 启动 polling
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
     print(f"Bot Start Polling\n", flush=True)
+
+    setting_chat_id = tgbot.config['setting_chat_id']
+    setting_tread_id = tgbot.config['setting_tread_id']
+    
+    tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, setting_tread_id)
     
     while True:
         loop_start_time = time.time()
@@ -721,6 +757,17 @@ async def main():
             await application.stop()  # 停止轮询
             print(f"\nStopping main loop after exceeding max_process_time of {max_process_time} seconds.\n", flush=True)
             break
+
+        # input_string = json.dumps(tgbot.get_last_read_message_content())
+        # byte_data = input_string.encode('utf-8')
+        # tgbot.setting['last_read_message_content'] = base64.urlsafe_b64encode(byte_data).decode('utf-8')
+       
+        tgbot.setting['last_read_message_content'] = tgbot.get_last_read_message_content()
+
+        # print(f"Last read message content: {tgbot.setting}", flush=True)
+        config_str2 = json.dumps(tgbot.setting, indent=2)  # 转换为 JSON 字符串
+        async with client.conversation(tgbot.config['setting_chat_id']) as conv:
+            await conv.send_message(config_str2, reply_to=tgbot.config['setting_tread_id'])
 
         loop_elapsed_time = time.time() - loop_start_time
         if loop_elapsed_time < max_break_time:
