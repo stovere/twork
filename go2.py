@@ -49,7 +49,7 @@ try:
 
 
     config = {
-        #'session_string': os.getenv('SESSION_STRING'),
+        'session_string': os.getenv('SESSION_STRING'),
         'api_id': os.getenv('API_ID'),
         'api_hash': os.getenv('API_HASH'),
         'phone_number': os.getenv('PHONE_NUMBER'),
@@ -63,8 +63,8 @@ try:
         'key_word': os.getenv('KEY_WORD'),
         'show_caption': os.getenv('SHOW_CAPTION'),
         'bot_username' : os.getenv('BOT_USERNAME'),
-        'setting_chat_id': 2030683460,
-        'setting_tread_id': 9,
+        'setting_chat_id': os.getenv('SETTING_CHAT_ID'),
+        'setting_tread_id': os.getenv('SETTING_THREAD_ID'),
     }
 
     #max_process_time 設為 600 秒，即 10 分鐘
@@ -423,10 +423,9 @@ async def handle_bot_message(update: Update, context) -> None:
 # 创建客户端
 
 
-# 如果 config 有屬性 session_string，則使用 session_string 來建立 client
-if 'session_string' in config:
-    session_name = StringSession(config['session_string'])
-    
+# 如果 config 有屬性 session_string 且 值不为空，則使用 session_string 來建立 client
+if hasattr(config, 'session_string') and config['session_string']:
+    client = TelegramClient(StringSession(config['session_string']), config['api_id'], config['api_hash'])
 else:
     session_name = config['session_name']
     
