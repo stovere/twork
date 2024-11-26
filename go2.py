@@ -63,8 +63,8 @@ try:
         'key_word': os.getenv('KEY_WORD'),
         'show_caption': os.getenv('SHOW_CAPTION'),
         'bot_username' : os.getenv('BOT_USERNAME'),
-        'setting_chat_id': os.getenv('SETTING_CHAT_ID'),
-        'setting_tread_id': os.getenv('SETTING_THREAD_ID'),
+        'setting_chat_id': int(os.getenv('SETTING_CHAT_ID'),0),
+        'setting_tread_id': int(os.getenv('SETTING_THREAD_ID'),0),
     }
 
     #max_process_time 設為 600 秒，即 10 分鐘
