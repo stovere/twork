@@ -65,7 +65,7 @@ jobs:
                 core.setFailed("Max retries reached. Workflow did not start.");
             }
 
-            await new Promise(resolve => setTimeout(resolve, 60000)); // 等待 1 分钟
+            //await new Promise(resolve => setTimeout(resolve, 60000)); // 等待 1 分钟
       continue-on-error: false   
 
 
