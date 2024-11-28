@@ -69,7 +69,8 @@ try:
         'key_word': os.getenv('KEY_WORD'),
         'show_caption': os.getenv('SHOW_CAPTION'),
         'bot_username' : os.getenv('BOT_USERNAME'),
-        'configure_chat_id': -940026976
+        'setting_chat_id': int(os.getenv('SETTING_CHAT_ID'),0),
+        'setting_tread_id': int(os.getenv('SETTING_THREAD_ID'),0)
     }
 
     
@@ -241,16 +242,12 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
             continue
 
         # 设一个黑名单列表，如果 entity.id 在黑名单列表中，则跳过
-        blacklist = [
-            777000,     #Telegram
-            93372553,   #BotFather
-            2141416413, #DataPanHome
-            2233580528, #FilesPan1Home
-            7386890195,  #mediabk4bot
-            2143443716  #/XP Account
-            ]
+        blacklist = []
         
         skip_vaildate_list = [2201450328]
+
+        if tgbot.setting['blacklist']:
+            blacklist = tgbot.setting['blacklist']
 
         if entity.id in blacklist:
             NEXT_DIALOGS = True
@@ -387,12 +384,11 @@ async def main():
     await application.updater.start_polling()
     
    
-    configure_chat_id = tgbot.config['configure_chat_id']
+
     
-    tgbot.setting = await tgbot.load_tg_setting(configure_chat_id)
-    # print(f"Setting: {setting}", flush=True)
-    # await create_group()
-    
+    setting_chat_id = tgbot.config['setting_chat_id']
+    # print(f"Setting chat id: {tgbot.config}", flush=True)
+    tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, tgbot.config['setting_tread_id'])
 
 
 
@@ -406,14 +402,13 @@ async def main():
             print(f"\nStopping main loop after exceeding max_process_time of {max_process_time} seconds.\n", flush=True)
             break
 
-        input_string = json.dumps(tgbot.get_last_read_message_content())
-        byte_data = input_string.encode('utf-8')
-        tgbot.setting['last_read_message_content'] = base64.urlsafe_b64encode(byte_data).decode('utf-8')
-       
-        print(f"Last read message content: {tgbot.setting}", flush=True)
+        tgbot.setting['last_read_message_content'] = tgbot.get_last_read_message_content()
+
+        # print(f"Last read message content: {tgbot.setting}", flush=True)
         config_str2 = json.dumps(tgbot.setting, indent=2)  # 转换为 JSON 字符串
-        async with client.conversation(tgbot.config['configure_chat_id']) as conv:
-            await conv.send_message(config_str2)
+        async with client.conversation(tgbot.config['setting_chat_id']) as conv:
+            await conv.send_message(config_str2, reply_to=tgbot.config['setting_tread_id'])
+
 
         print("\nExecution time is " + str(int(elapsed_time)) + f" seconds. Continuing next cycle... after {max_break_time} seconds.\n\n", flush=True)
         print(f"-\n", flush=True)

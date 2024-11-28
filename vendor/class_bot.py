@@ -131,7 +131,6 @@ class LYClass:
             sender = await client.get_entity(message.from_id)
 
             sender_title = f"{sender.first_name}"
-
             # if sender.last_name is not None then sender_title = f"{sender.first_name} {sender.last_name}"
             if sender.last_name:
                 sender_title = f"{sender.first_name} {sender.last_name}"
@@ -148,10 +147,19 @@ class LYClass:
             caption_text = None
         
         try:
+            # print(f"Message: {message}")
+
+            
+
             if hasattr(message, 'grouped_id') and message.grouped_id:
+                
                 # 获取相册中的所有消息
-                album_messages = await client.get_messages(message.peer_id, limit=100)
+                # print(f"\r\nPeer ID: {message.peer_id}",flush=True)
+                album_messages = await client.get_messages(message.peer_id, limit=100, min_id=message.id,reverse=True)
+                # print(f"\r\nAlbum messages: {album_messages}",flush=True)
+
                 album = [msg for msg in album_messages if msg.grouped_id == message.grouped_id]
+                # print(f"\r\nAlbum: {album}",flush=True)
                 if album:
                     await asyncio.sleep(0.5)  # 间隔80秒
                     last_message_id = max(row.id for row in album)
@@ -173,7 +181,7 @@ class LYClass:
                     # await client.send_file(self.config['warehouse_chat_id'], video, reply_to=message.id, caption=caption_text, parse_mode='html')
                     
                     await client.send_file(self.config['warehouse_chat_id'], video,  caption=caption_text, parse_mode='html')
-                    print(">>Forwarded video.\n")
+                    print(">>>>Forwarded video.\n")
                     
                     # 调用新的函数
                     #await self.send_video_to_filetobot_and_publish(client, video, message)
@@ -182,14 +190,14 @@ class LYClass:
                     document = message.media.document
                     # await client.send_file(self.config['warehouse_chat_id'], document, reply_to=message.id, caption=caption_text, parse_mode='html')
                     await client.send_file(self.config['warehouse_chat_id'], document,  caption=caption_text, parse_mode='html')
-                    print(">>Forwarded document.\n")
+                    print(">>>>Forwarded document.\n")
             elif isinstance(message.media, types.MessageMediaPhoto):
                 # 处理图片
                 photo = message.media.photo
                 await client.send_file(self.config['warehouse_chat_id'], photo,  caption=caption_text, parse_mode='html')
                 
                 # await client.send_file(self.config['warehouse_chat_id'], photo, reply_to=message.id, caption=caption_text, parse_mode='html')
-                print(">>Forwarded photo.\n")
+                print(">>>>Forwarded photo.\n")
             else:
                 print("Received media, but not a document, video, photo, or album.")
         except WorkerBusyTooLongRetryError:

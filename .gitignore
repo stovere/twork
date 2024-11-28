@@ -170,5 +170,5 @@ last_read_message_id.json
 *.session.enc
 *.stringsession.enc
 
-.github/workflows/main.yml
+
 23239948session_name.session-journal
