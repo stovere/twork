@@ -78,9 +78,9 @@ try:
     #max_process_time 設為 600 秒，即 10 分鐘
     max_process_time = 60*27  # 25分钟
     max_media_count = 55  # 10个媒体文件
-    max_count_per_chat = 12  # 每个对话的最大消息数
-    # max_break_time = 90  # 休息时间
-    max_break_time = 60  # 休息时间
+    max_count_per_chat = 11  # 每个对话的最大消息数
+    max_break_time = 90  # 休息时间
+    
 
     # 创建 LYClass 实例
 
@@ -231,15 +231,7 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
         NEXT_DIALOGS = False
         entity = dialog.entity
 
-        # 跳过来自 WAREHOUSE_CHAT_ID 的对话
-        if entity.id == tgbot.config['warehouse_chat_id']:
-            NEXT_DIALOGS = True
-            continue
-
-        # 如果entity.id 是属于 wp_bot 下的 任一 id, 则跳过
-        if entity.id in [int(bot['id']) for bot in wp_bot]:
-            NEXT_DIALOGS = True
-            continue
+        
 
         # 设一个黑名单列表，如果 entity.id 在黑名单列表中，则跳过
         blacklist = []
@@ -249,7 +241,24 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
         if tgbot.setting['blacklist']:
             blacklist = tgbot.setting['blacklist']
 
+        if tgbot.setting['warehouse_chat_id']:
+            tgbot.config['warehouse_chat_id'] = tgbot.setting['warehouse_chat_id']
+
+
+
+
+
         if entity.id in blacklist:
+            NEXT_DIALOGS = True
+            continue
+
+        # 跳过来自 WAREHOUSE_CHAT_ID 的对话
+        if entity.id == tgbot.config['warehouse_chat_id']:
+            NEXT_DIALOGS = True
+            continue
+
+        # 如果entity.id 是属于 wp_bot 下的 任一 id, 则跳过
+        if entity.id in [int(bot['id']) for bot in wp_bot]:
             NEXT_DIALOGS = True
             continue
 
@@ -388,12 +397,24 @@ async def main():
     
     setting_chat_id = tgbot.config['setting_chat_id']
     # print(f"Setting chat id: {tgbot.config}", flush=True)
-    tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, tgbot.config['setting_tread_id'])
+    
 
 
 
     while True:
         loop_start_time = time.time()
+        tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, tgbot.config['setting_tread_id'])
+
+        if tgbot.setting['max_process_time']:
+            max_process_time = tgbot.setting['max_process_time']
+        if tgbot.setting['max_media_count']:
+            max_media_count = tgbot.setting['max_media_count']
+        if tgbot.setting['max_count_per_chat']:
+            max_count_per_chat = tgbot.setting['max_count_per_chat']
+        if tgbot.setting['max_break_time']:
+            max_break_time = tgbot.setting['max_break_time']
+
+
         await telegram_loop(client, tgbot, max_process_time, max_media_count, max_count_per_chat)
         
         elapsed_time = time.time() - start_time
