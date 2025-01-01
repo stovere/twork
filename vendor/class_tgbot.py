@@ -123,7 +123,7 @@ class lybot:
 
         return ''.join(reversed(result)) 
     
-    # 密文格式: [type]_jjlbot_[file_unique_id]§[file_id]§[bot_name]§[send_id];
+    # 密文格式: [type]_didipanbot_[file_unique_id]§[file_id]§[bot_name]§[send_id];
     # 传入字符串 file_unique_id, file_id, bot_name, sender_id, type ,会返回一个字符串, 该字符串的格式是上面的格式,并份字串会以§分隔
     # sender_id 可以为空, 为空时, 会自动填充为 0
     async def encode(self, file_unique_id, file_id, bot_name, file_type,sender_id=None):
@@ -135,7 +135,7 @@ class lybot:
         bot_name_enc = self.convert_base(bot_name, 64, 155)
         sender_id_enc = self.convert_base(sender_id, 10, 155)
         file_type_enc = file_type
-        return f"{file_type_enc}_jjlbot_{file_unique_id_enc}§{file_id_enc}§{bot_name_enc}§{sender_id_enc}§"
+        return f"{file_type_enc}_didipanbot_{file_unique_id_enc}§{file_id_enc}§{bot_name_enc}§{sender_id_enc}§"
   
     async def encode_message(self, message):
         # Encodes a Telegram message into a string that can be decoded back into its original components.
@@ -145,7 +145,7 @@ class lybot:
 
         # Returns:
         #     str: The encoded string. Format:
-        #          [type]_jjlbot_[file_unique_id]§[file_id]§[bot_name]§[send_id]§
+        #          [type]_didipanbot_[file_unique_id]§[file_id]§[bot_name]§[send_id]§
 
         # Raises:
         #     ValueError: If the message is not a supported type.
@@ -181,7 +181,7 @@ class lybot:
 
         # Args:
         #     encoded_str (str): The encoded string to decode. Format:
-        #                       [type]_jjlbot_[file_unique_id]§[file_id]§[bot_name]§[send_id]§
+        #                       [type]_didipanbot_[file_unique_id]§[file_id]§[bot_name]§[send_id]§
 
         # Returns:
         #     dict: A dictionary containing the decoded components:
@@ -196,7 +196,7 @@ class lybot:
         
         try:
             # Split the encoded string into the main type and the rest
-            type_part, data_part = encoded_str.split('_jjlbot_', 1)
+            type_part, data_part = encoded_str.split('_didipanbot_', 1)
             components = data_part.split('§')
            
             if len(components) != 5:
@@ -227,10 +227,10 @@ class lybot:
        
         # 允许的字符集
         # allowed_chars = r"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz\-_¡¢£¤¥¦¨©ª¬®¯°±²³´µ¶·¸¹º¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ"
-        # pattern = fr"^[pvdau]_jjlbot_[{allowed_chars}]*§[{allowed_chars}]*§[{allowed_chars}]*§[{allowed_chars}]*§$"
+        # pattern = fr"^[pvdau]_didipanbot_[{allowed_chars}]*§[{allowed_chars}]*§[{allowed_chars}]*§[{allowed_chars}]*§$"
 
         # 构造正则表达式
-        pattern = r"^[pvdau]_jjlbot_[^\s]*§[^\s]*§[^\s]*§[^\s]*§$"
+        pattern = r"^[pvdau]_didipanbot_[^\s]*§[^\s]*§[^\s]*§[^\s]*§$"
         matches = re.findall(pattern, text, re.IGNORECASE | re.MULTILINE)
         return matches
 
@@ -707,15 +707,15 @@ class lybot:
 
 # # 测试案例：多行文字
 # test_text = """
-# p_jjlbot_abc§def§ghi§jkl§
-# v_jjlbot_test123§456§789§end§
-# D_jjlbot_A§B§C§D§
-# A_jjlbot_1§2§3§4§
-# x_jjlbot_abc§def§ghi§jkl§  # 不符合
-# p_jjlbot_abc§def§ghi§jkl
-# u_jjlbot_only_three§one§two§  # 不符合
-# p_jjlbot_1BRàD¶ãÅbUFÁÎ§2Úë4-otdC_ríÛÙí9íjeëà×ßÈqý©ÃaÉäÌïUfçÇýß¤0ê®üØÐ¡äè·£Ç¶7¾oæ¢H§5Á¨DuT¦¡ÆËUÚê§0§
-# p_jjlbot_2BRàD¶ãÅbUFÁÎ§2Úë4-otdC_ríÛÙí9íjeëà×ßÈqý©ÃaÉäÌïUfçÇýß¤0ê®üØÐ¡äè·£Ç¶7¾oæ¢H§5Á¨DuT¦¡ÆËUÚê§0§
+# p_didipanbot_abc§def§ghi§jkl§
+# v_didipanbot_test123§456§789§end§
+# D_didipanbot_A§B§C§D§
+# A_didipanbot_1§2§3§4§
+# x_didipanbot_abc§def§ghi§jkl§  # 不符合
+# p_didipanbot_abc§def§ghi§jkl
+# u_didipanbot_only_three§one§two§  # 不符合
+# p_didipanbot_1BRàD¶ãÅbUFÁÎ§2Úë4-otdC_ríÛÙí9íjeëà×ßÈqý©ÃaÉäÌïUfçÇýß¤0ê®üØÐ¡äè·£Ç¶7¾oæ¢H§5Á¨DuT¦¡ÆËUÚê§0§
+# p_didipanbot_2BRàD¶ãÅbUFÁÎ§2Úë4-otdC_ríÛÙí9íjeëà×ßÈqý©ÃaÉäÌïUfçÇýß¤0ê®üØÐ¡äè·£Ç¶7¾oæ¢H§5Á¨DuT¦¡ÆËUÚê§0§
 # """
 
 # decode_row = tgbot.find_encode_code(test_text)
