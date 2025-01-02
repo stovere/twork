@@ -21,7 +21,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-   # 步骤 2: 检查正在运行的工作流数量
+    # 步骤 2: 检查正在运行的工作流数量
     - name: Check for running workflows
       uses: actions/github-script@v6
       id: check-running
@@ -37,8 +37,10 @@ jobs:
           });
           // 过滤掉当前工作流
           const otherRuns = data.workflow_runs.filter(run => run.id !== currentRunId);
+          core.setOutput('hasOtherRuns', otherRuns.length > 0 ? 'true' : 'false');
           if (otherRuns.length > 0) {
-            core.setFailed(`Another workflow is already running.`);
+            console.log("Another workflow is already running.");
+           
           } else {
             console.log("No other running workflows.");
           }
