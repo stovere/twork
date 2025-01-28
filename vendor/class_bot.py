@@ -581,19 +581,13 @@ class LYClass:
             print(f"Error fetching messages: {e}")
             return
         
-
-   
-
-
         if not messages or not messages[0].text:
             return "No messages found."
 
         # 确认 messages[0] 中否为 json , 若是则返回, 不是则返回 None
         if messages[0].text.startswith('{') and messages[0].text.endswith('}'):
-            
             return json.loads(messages[0].text)
         else:
-            
             return json.loads("{}")
         
 

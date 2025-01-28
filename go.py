@@ -175,8 +175,30 @@ async def main():
     
     tgbot.setting = await tgbot.load_tg_setting(setting_chat_id, tgbot.config['setting_tread_id'])
     
+    
     # tgbot.setting = await process_chats(client, tgbot.setting)
     # print("Updated JSON:", tgbot.setting)
+
+    # 如果 tgbot.setting 中的 warehouse_chat_id 有值，则更新 tgbot.config 中的 warehouse_chat_id
+    if 'warehouse_chat_id' in tgbot.setting:
+        tgbot.config['warehouse_chat_id'] = int(tgbot.setting['warehouse_chat_id'])
+    elif 'warehouse_chat_id' not in tgbot.setting and 'warehouse_chat_id' in tgbot.config:
+        tgbot.setting['warehouse_chat_id'] = tgbot.config['warehouse_chat_id']
+
+    if 'work_chat_id' in tgbot.setting:
+        tgbot.config['work_chat_id'] = int(tgbot.setting['work_chat_id'])
+    elif 'work_chat_id' not in tgbot.setting and 'work_chat_id' in tgbot.config:
+        tgbot.setting['work_chat_id'] = tgbot.config['work_chat_id']
+
+    if 'link_chat_id' in tgbot.setting:
+        tgbot.config['link_chat_id'] = int(tgbot.setting['link_chat_id'])
+    elif 'link_chat_id' not in tgbot.setting and 'link_chat_id' in tgbot.config:
+        tgbot.setting['link_chat_id'] = tgbot.config['link_chat_id']        
+
+
+      
+
+   
 
     while True:
         NEXT_CYCLE = False

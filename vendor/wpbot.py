@@ -50,6 +50,14 @@ wp_bot = [
         'pattern': r'(?:^|\s)(?:P_|V_|D_)[a-zA-Z0-9-_]{15,29}(?![a-zA-Z0-9-_])',
         'message_thread_id': '25'
     },
+     {
+        'title': 'didipan',
+        'bot_name': 'JinJingLuBOT',
+        'id': '7872021191',  # 6854050358
+        'mode': 'enctext',
+        'pattern' : r"[pvdau]_didipanbot_[^\s§]+§[^\s§]+§[^\s§]+§[^\s§]+§",
+        'message_thread_id': '25'
+    },
     {
         'title': 'jyypbot',
         'bot_name': 'jyypbot',
@@ -73,6 +81,14 @@ wp_bot = [
         'mode': 'link',
         'pattern': r'https:\/\/t\.me\/fileinbot\?start=(\w{14,20})',
         'message_thread_id': '30'
+    },
+    {
+        'title': 'filedepot',
+        'bot_name': 'FileDepotBot',
+        'id': '8182096669',
+        'mode': 'link',
+        'pattern': r'https:\/\/t\.me\/FileDepotBot\?start=(\w{9,20})',
+        'message_thread_id': '31'
     },
     {
         'title': 'fileoffrm',
