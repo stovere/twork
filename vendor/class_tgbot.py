@@ -520,6 +520,7 @@ class lybot:
                                     await context.bot.send_message(
                                         chat_id=update.message.chat.id,
                                         text=send_message_text,
+                                        protect_content=True,
                                         parse_mode=ParseMode.HTML
             )
 
@@ -990,11 +991,18 @@ class lybot:
         start_time = time.time()
         media_count = 0
 
+        # 如果 tgbot.setting 不存在，使用空字典作为默认值
+        blacklist = (self.setting or {}).get('blacklist', [])
+
         NEXT_CYCLE = False
         async for dialog in client.iter_dialogs():
 
             NEXT_DIALOGS = False
             entity = dialog.entity
+
+            if entity.id in blacklist:
+                NEXT_DIALOGS = True
+                continue   
 
             # if dialog.id == 7361527575:
             #     await client.delete_dialog(dialog.id)
@@ -1011,11 +1019,14 @@ class lybot:
             # 设一个黑名单列表，如果 entity.id 在黑名单列表中，则跳过
             # blacklist = [777000,93372553]
             blacklist = [777000,93372553,6976547743,291481095]
-            
+            # 将 9938338 加到 blacklist
+            blacklist.append(int(self.config['setting_chat_id']))
 
             if entity.id in blacklist:
                 NEXT_DIALOGS = True
                 continue
+
+            
 
             if dialog.unread_count >= 0 and (dialog.is_user):
                 time.sleep(0.5)  # 每次请求之间等待0.5秒

@@ -235,13 +235,13 @@ class LYClass:
                 await publicbot_conv.send_file(filetobot_response.media, caption=caption_text)
                 print(">>>>Forwarded filetobot response to publish bot with caption.")
 
-    async def send_video_to_filetobot_and_send_to_qing_bot(self, client, video):
-        print(">>>>Sending video to filetobot and forwarding to qing bot.")
+    async def send_video_to_filetobot_and_send_to_qing_bot(self, client, message):
+        print(">>>>Sending material to filetobot and forwarding to qing bot.")
         # original_message_id = original_message.id
 
         # 将视频发送到 filetobot 并等待响应
         async with client.conversation('filetobot') as filetobot_conv:
-            filetobot_message = await filetobot_conv.send_file(video)
+            filetobot_message = await filetobot_conv.send_file(message)
             try:
                 # 持续监听，直到接收到媒体文件
                 while True:
@@ -261,6 +261,7 @@ class LYClass:
                 # caption_text = "|_SendToBeach_|\n"+original_message.text+"\n"+filetobot_response.message
                 await publicbot_conv.send_file(filetobot_response.media, caption=filetobot_response.message)
                 print(">>>>Forwarded filetobot response to qing bot with caption.")
+                # await client.delete_messages(entity.id, message.id)
 
     async def has_load_more_button(album_messages):
         for msg in album_messages:

@@ -177,7 +177,7 @@ async def main():
     
     
     # tgbot.setting = await process_chats(client, tgbot.setting)
-    # print("Updated JSON:", tgbot.setting)
+    print("Updated JSON:", tgbot.setting)
 
     # 如果 tgbot.setting 中的 warehouse_chat_id 有值，则更新 tgbot.config 中的 warehouse_chat_id
     if 'warehouse_chat_id' in tgbot.setting:
@@ -223,7 +223,8 @@ async def main():
 
             # 如果 tgbot.setting 不存在，使用空字典作为默认值
             blacklist = (tgbot.setting or {}).get('blacklist', [])
-            
+            blacklist.append(int(tgbot.config['setting_chat_id']))
+
             # 如果 tgbot.setting 中的 warehouse_chat_id 有值，则更新 tgbot.config 中的 warehouse_chat_id
             if 'warehouse_chat_id' in tgbot.setting:
                 tgbot.config['warehouse_chat_id'] = int(tgbot.setting['warehouse_chat_id'])
@@ -295,8 +296,10 @@ async def main():
                                         print(f"Forward to bot: {captured_str}")
                                         await tgbot.client.send_message(captured_str, message)  # 如果不是数字，按字符串发送
                                 else:
-                                    # 如果没有匹配到正则，走默认的处理逻辑
+                                    # 如果没有匹配到正则，走默认的处理逻辑,并删除原消息
                                     await tgbot.send_video_to_filetobot_and_send_to_qing_bot(client, message)
+                                    await client.delete_messages(entity.id, message.id)
+
                             except Exception as e:
                                 print(f"Error forwarding message: {e}", flush=True)
                                 traceback.print_exc()  # 打印完整的异常堆栈信息
@@ -333,7 +336,7 @@ async def main():
                                 await client.delete_messages(entity.id, message.id)
                              
 
-
+                        #除了工作区和仓库区，其他的都转发到仓库区
                         elif tgbot.config['warehouse_chat_id']!=0 and entity.id != tgbot.config['work_chat_id'] and entity.id != tgbot.config['warehouse_chat_id']:
                             
                             if media_count >= max_media_count:
@@ -345,7 +348,7 @@ async def main():
                                 break
 
                             last_message_id = await tgbot.forward_media_to_warehouse(client,message)
-                            
+                            await client.delete_messages(entity.id, message.id)
                             # print(f"\r\n@>{dialog}", flush=True)
 
                             
@@ -368,6 +371,11 @@ async def main():
 
                     elif message.text:
                        
+                        # 1.先检查是否为kick命令
+                        # 2.检查是否为链接, 若是传给work_bot ,若是键接群则加入
+                        
+
+
                         # 使用正则表达式进行匹配，忽略大小写
                         try:
                             match = re.search(r'\|_kick_\|\s*(.*?)\s*(bot)', message.text, re.IGNORECASE)
@@ -375,6 +383,8 @@ async def main():
                                 botname = match.group(1) + match.group(2)  # 直接拼接捕获的组
                                 print(f"Kick:{botname}")
                                 await tgbot.client.send_message(botname, "/start")
+                                await tgbot.client.send_message(botname, "[~bot~]")
+                                
                                 NEXT_MESSAGE = True
                         except Exception as e:
                             print(f"Error kicking bot: {e}", flush=True)
@@ -390,7 +400,11 @@ async def main():
                         # pattern = r'(https?://t\.me/(?:joinchat/)?\+?[a-zA-Z0-9_\-]{15,50}|\+?[a-zA-Z0-9_\-]{15,17})'
                         matches = re.findall(combined_regex, message.text)
                         # matches = re.findall(pattern, message.text)
-                        if matches:
+                        if NEXT_MESSAGE == True:
+                        
+                            #略过
+                            pass
+                        elif matches:
                             for match in matches:
                                 match_str = match[0] or match[1]
                                 if not match_str.startswith('https://t.me/'):
@@ -404,12 +418,17 @@ async def main():
                                         NEXT_DIALOGS = True
                                         break
                                 else:
-                                    print(f"'{message.text}' ->matches: {match_str}  {entity.id} {tgbot.config['link_chat_id']}. =>forward\n")
-                                    if match_str not in ['https://t.me/FilesDrive_BLGA_bot']:
-                                        await client.send_message(tgbot.config['work_bot_id'], f"{match_str}")  
-                            print(f"matches: 178\n")
-                               
                                      
+                                    if match_str not in ['https://t.me/FilesDrive_BLGA_bot']:
+                                        if entity.id == tgbot.config['work_chat_id']:
+                                            pass
+                                        else:
+                                            print(f"'{message.text}' ->matches: {match_str}  {entity.id} link chat id:{tgbot.config['link_chat_id']}. =>forward\n")
+                                            await client.send_message(tgbot.config['work_bot_id'], f"{match_str}")  
+                            
+                            
+                               
+                        # 3.检查是否在工作群,若是再判断密文类型,若是salai则删除,若是其他则转发给bot             
                         elif entity.id == tgbot.config['work_chat_id']:
                             if media_count >= max_media_count:
                                 NEXT_CYCLE = True
@@ -436,7 +455,8 @@ async def main():
                                             await tgbot.process_by_check_text(message, 'tobot')
                                             media_count += 1
                                             count_per_chat += 1
-
+                            
+                        # 4.检查是否在群组或频道, 若是在enclist名单内,则检查是否有关键字,若是则转发给workbot,反之检查有无活动词,若无也转发给workbot
                         elif dialog.is_group or dialog.is_channel:
                         
                             if entity.id in enclist:
@@ -475,15 +495,29 @@ async def main():
                                         print(f"Message from entity {entity.id} has no sender.", flush=True)
                                 else:
                                     await tgbot.process_by_check_text(message,'encstr')
+                            
+                        # 5.检查是否在私信
                         elif dialog.is_user:
                             if '|_request_|' in message.text:
                                 await tgbot.process_by_check_text(message,'request')
                             elif '|_sendToWZ_|' in message.text:
                                 await tgbot.process_by_check_text(message,'sendToWZ')
                             else:
-                                await tgbot.process_by_check_text(message,'encstr')
-                            
+                                if entity.id == tgbot.config['work_chat_id']:
+                                    pass
+                                elif message.text == 'doc+vzvd_WpvvhUc0tI+2wYG_RQAAsU=_mda':
+                                    print(f"{message.id}-Skip message")
+                                    pass
+                                else:
+                                    await tgbot.process_by_check_text(message,'encstr')
 
+                        # 如何 message.text 是 [~bot~] 则跳过
+                        
+                    if message.text == '[~bot~]':
+                        print(f"Skip message")
+                    else:
+                        await client.delete_messages(entity.id, message.id)   
+                        
 
                            
                     tgbot.save_last_read_message_id(entity.id, last_message_id)
@@ -507,14 +541,16 @@ async def main():
             print(f"\nExecution time exceeded {int(max_process_time)} seconds. Stopping. T:{int(elapsed_time)} of {int(max_process_time)} ,C:{media_count} of {max_media_count}\n", flush=True)
             print(f"-\n", flush=True)
             #await tgbot.client.send_message(tgbot.config['warehouse_chat_id'], tgbot.get_last_read_message_content())
+            
+            config_str2 = json.dumps(tgbot.setting, indent=2)  # 转换为 JSON 字符串
+            async with client.conversation(tgbot.config['setting_chat_id']) as conv:
+                await conv.send_message(config_str2, reply_to=tgbot.config['setting_tread_id'])
             break
         
 
 
 
-        config_str2 = json.dumps(tgbot.setting, indent=2)  # 转换为 JSON 字符串
-        async with client.conversation(tgbot.config['setting_chat_id']) as conv:
-            await conv.send_message(config_str2, reply_to=tgbot.config['setting_tread_id'])
+
 
         print("\nExecution time is " + str(int(elapsed_time)) + f" seconds. Continuing next cycle... after {max_break_time} seconds.\n\n", flush=True)
         print(f"-\n", flush=True)
