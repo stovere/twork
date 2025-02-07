@@ -478,7 +478,7 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
         if tgbot.setting['blacklist']:
             blacklist = tgbot.setting['blacklist']
 
-        blacklist.append(int(tgbot.config['setting_chat_id']))
+        
 
         if entity.id in blacklist:
             NEXT_DIALOGS = True

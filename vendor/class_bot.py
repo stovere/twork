@@ -587,6 +587,7 @@ class LYClass:
 
         # 确认 messages[0] 中否为 json , 若是则返回, 不是则返回 None
         if messages[0].text.startswith('{') and messages[0].text.endswith('}'):
+            print(f"Setting found: {messages[0].text}")
             return json.loads(messages[0].text)
         else:
             return json.loads("{}")

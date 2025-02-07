@@ -223,7 +223,7 @@ async def main():
 
             # 如果 tgbot.setting 不存在，使用空字典作为默认值
             blacklist = (tgbot.setting or {}).get('blacklist', [])
-            blacklist.append(int(tgbot.config['setting_chat_id']))
+            
 
             # 如果 tgbot.setting 中的 warehouse_chat_id 有值，则更新 tgbot.config 中的 warehouse_chat_id
             if 'warehouse_chat_id' in tgbot.setting:
