@@ -310,6 +310,8 @@ async def handle_bot_message(update: Update, context) -> None:
 
                 if unparse_enc:
                     if bot_mode == 'enctext':
+                        if bot_username == "datapanbot":
+                            bot_username = "ShowFilesBot"
                         response += f"<pre>{match_results}</pre> via @{bot_username}\n\n"
                     elif bot_mode == 'link':
                         response += f"{match_results}\n\n"
@@ -708,13 +710,9 @@ async def telegram_loop(client, tgbot, max_process_time, max_media_count, max_co
 
 
 async def main():
-
-
     await client.start(phone_number)
     start_time = time.time()
     print(f"\nRestarting\n", flush=True)
-
-
 
     # return
     # 启动 polling
@@ -761,8 +759,6 @@ async def main():
         # byte_data = input_string.encode('utf-8')
         # tgbot.setting['last_read_message_content'] = base64.urlsafe_b64encode(byte_data).decode('utf-8')
        
-
-
         loop_elapsed_time = time.time() - loop_start_time
         if loop_elapsed_time < max_break_time:
             print("\nExecution time is " + str(int(elapsed_time)) + f" seconds. Continuing next cycle... after {max_break_time - loop_elapsed_time} seconds.\n\n", flush=True)
@@ -770,9 +766,6 @@ async def main():
             print(f"-------------------------------------\n", flush=True)
             await asyncio.sleep(max_break_time - loop_elapsed_time)
            
-            
-
-
 with client:
     client.loop.run_until_complete(main())
 
