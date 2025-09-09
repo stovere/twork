@@ -113,7 +113,7 @@ jobs:
         DB_HOST: ${{ secrets.DB_HOST }}
         DB_PORT: ${{ secrets.DB_PORT }}
         DB_SSLMODE: ${{ secrets.DB_SSLMODE }}
-        
+        USER_SESSION_STRING: ${{ secrets.USER_SESSION_STRING }}
       run: |
         python jjl.py
 

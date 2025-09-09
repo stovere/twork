@@ -7,8 +7,10 @@ import time
 from peewee import PostgresqlDatabase
 from playhouse.pool import PooledPostgresqlDatabase
 from vendor.class_tgbot import lybot  # 导入自定义的 LYClass
+from telethon.sessions import StringSession
 import logging
 import os
+import random
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters
 
@@ -34,7 +36,7 @@ logger.addHandler(flush_handler)
 # 检查是否在本地开发环境中运行
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(dotenv_path='.25506053.jjl.env')
 
 
 db_port = os.getenv('DB_PORT')
@@ -80,12 +82,19 @@ if 'bot_token' in config and config['bot_token']:
 if 'db_name' in config and config['db_name']:
     module_enable['db'] = True        
 
-
+SESSION_STRING  = os.getenv("USER_SESSION_STRING")
 
 # MBot
 #如果 config 存在 seesion_name, 则使用
 if module_enable['man_bot'] == True:
-    client = TelegramClient(config['session_name'], config['api_id'], config['api_hash'])
+    if SESSION_STRING:
+        print("【Telethon】使用 StringSession 登录。",flush=True)
+        client = TelegramClient(StringSession(SESSION_STRING), config['api_id'], config['api_hash'])
+        
+    else:
+        client = TelegramClient(config['session_name'], config['api_id'], config['api_hash'])
+        
+   
 
 
 # 使用连接池并启用自动重连
@@ -102,6 +111,12 @@ if module_enable['db'] == True:
     )
 else:
     db = None
+
+# if module_enable['db'] == True:
+#     from database import db,initialize_db
+# else:
+#     db = None
+
 
 
 # 初始化 Bot 和 Application
@@ -124,11 +139,6 @@ if module_enable['dyer_bot'] == True:
     # 添加命令处理程序
     dyer_application.add_handler(MessageHandler(filters.ALL, dyerbot.handle_bot_message))
     # 添加消息处理程序
-
-
-
-
-
 
 # 主运行函数
 async def main():
@@ -169,20 +179,27 @@ async def main():
 
     
 
+
+
+
+
     
     start_time = time.time()
 
     if module_enable['man_bot'] == True:
         while True:
             await tgbot.man_bot_loop(client)
-            print(f"ok")
+            print(f"---Cycle End \r\n")
             elapsed_time = time.time() - start_time
 
-            if elapsed_time > tgbot.MAX_PROCESS_TIME:
-                break
+            # if elapsed_time > tgbot.MAX_PROCESS_TIME:
+            #     break
 
-
-            await asyncio.sleep(60)
+            # 乱数决定休息 60 ~180 秒
+            # await asyncio.sleep(random.randint(55, 180))
+            # await asyncio.sleep(random.randint(15, 20))
+            await asyncio.sleep(random.randint(4, 6))
+     
 
             if module_enable['db'] == True:
                 if not db.is_closed():

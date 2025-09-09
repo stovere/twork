@@ -2,3 +2,4 @@ telethon==1.38.0
 python-dotenv==0.19.2
 python-telegram-bot==21.6
 peewee==3.17.6
+imagehash==4.3.1

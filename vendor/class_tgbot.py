@@ -5,16 +5,48 @@ import sys
 import time
 import traceback
 import telegram.error
-from telethon import events,types,errors
+import os
+import unicodedata
+import random
+from time import sleep
+from peewee import DoesNotExist
+from telethon.errors import ChatForwardsRestrictedError,FloodWaitError
+import imagehash
+
+
+from telethon.errors import BotResponseTimeoutError
+from datetime import datetime
+from telethon import events, types, errors
+
+
+from PIL import Image as PILImage
+
+
 from telegram.error import BadRequest
 
 from telegram import InputMediaDocument, InputMediaPhoto, InputMediaVideo, Update
+
 from telegram.ext import CallbackContext
 from telegram.constants import ParseMode, MessageEntityType
-from telethon.errors import WorkerBusyTooLongRetryError
-from telethon.tl.types import InputMessagesFilterEmpty, Message, User, Chat, Channel, MessageMediaWebPage, MessageMediaPhoto
-from collections import defaultdict
+
+
+from telethon.errors import WorkerBusyTooLongRetryError, PeerIdInvalidError, RPCError
+# from telethon.errors.rpcerrorlist import PeerIdInvalidError
+
+
+from telethon.tl.types import InputMessagesFilterEmpty, Message, User, Chat, Channel, MessageMediaWebPage, MessageMediaPhoto, PeerUser, PeerChannel, KeyboardButtonUrl, MessageEntityMentionName, KeyboardButtonCallback
+from collections import defaultdict,namedtuple
 from peewee import PostgresqlDatabase, Model, CharField, BigIntegerField, CompositeKey, fn, AutoField 
+from telethon.tl.functions.messages import GetBotCallbackAnswerRequest
+
+from vendor.class_nonsense import Nonsense
+
+from database import ensure_connection
+
+from model.scrap import Scrap
+from model.scrap_progress import ScrapProgress
+
+
 
 #密文機器人
 
@@ -115,6 +147,9 @@ class lybot:
         self.MediaGroup = MediaGroup
         self.ShowFiles = ShowFiles
         self.User = User
+
+
+
 
     def convert_base(self, value, from_base, to_base):
    
@@ -516,7 +551,7 @@ class lybot:
 
                                 # 如果 send_message_text 有值且非空
                                 if send_message_text:
-                                    send_message_text = send_message_text + f"\r\n https://t.me/+OrYhYXD4PfU1Njc0"
+                                    send_message_text = send_message_text + f"\r\n https://t.me/+QiBzg9I3gG83NTAy"
                                     await context.bot.send_message(
                                         chat_id=update.message.chat.id,
                                         text=send_message_text,
@@ -545,6 +580,7 @@ class lybot:
                                 return
                             else:
                                 try:
+                                    
                                     # 尝试获取记录
                                     rows = self.FileInfo.select().where(self.FileInfo.file_unique_id == decode_row['file_unique_id'])
                                     dyer_dict = None
@@ -1026,65 +1062,1146 @@ class lybot:
                 NEXT_DIALOGS = True
                 continue
 
+            # if entity.id !=7361527575:  #Qing01
+            #     continue    
+
+            if entity.id != 2210941198:
+                continue
+            
             
 
-            if dialog.unread_count >= 0 and (dialog.is_user):
-                time.sleep(0.5)  # 每次请求之间等待0.5秒
+
+            if dialog.unread_count >= 0:
                 
-                # print(f">Reading messages from entity {entity.id} {entity_title} - U:{dialog.unread_count} \n", flush=True)
-                self.logger.info(f">Reading messages from entity {entity.id} {entity_title} - U:{dialog.unread_count} \n")
+                if dialog.is_user:
+                    time.sleep(0.5)  # 每次请求之间等待0.5秒
 
-                async for message in client.iter_messages(entity, min_id=0, limit=50, reverse=True, filter=InputMessagesFilterEmpty()):
-                    
-                    # for message in iter_messages:
-            
-                    ## 如果是 media 类型的消息
-                    if message.media and not isinstance(message.media, MessageMediaWebPage):
-                        print(f"Media message: {message}", flush=True)
+                    current_message = None
+                    max_message_id = self.get_max_source_message_id(entity.id)
+                    min_id = max_message_id if max_message_id else 1
+                    self.scrap_message_id = min_id
 
 
-                        # if isinstance(message.media, MessageMediaPhoto):  # 如果是照片
-                        #     try:
-                        #         # 下载图片并保存
-                        #         file_path = await message.download_media(file='downloads/')
-                        #         print(f"Downloaded photo to {file_path}", flush=True)
-
-                        #          # 将照片转发给 @bot123
-                        #         bot_username = '@filetobot'  # 机器人用户名
-                        #         await client.forward_messages(bot_username, message.id, entity)  # 转发照片
-
-                        #         print(f"Forwarded photo to {bot_username}", flush=True)
-
-                        #     except Exception as e:
-                        #         print(f"Error downloading photo: {e}", flush=True)
-                        #         traceback.print_exc()
-
-
-                        time.sleep(1)  # 每次请求之间等待0.5秒
-                        if dialog.is_user:
-                            try:
-                                send_result = await self.send_message_to_dye_vat(client, message)
-                                if send_result:
-                                    await client.delete_messages(entity.id, message.id)
-                                    # print(f"Send result: {send_result}", flush=True)
-                                
-                                
-                                #await self.forward_media_to_warehouse(client, message)
-                            except Exception as e:
-                                print(f"Error forwarding message: {e}", flush=True)
-                                traceback.print_exc()
-                            finally:
-                                NEXT_MESSAGE = True
+                    # print(f">Reading messages from entity {entity.id} {entity_title} - U:{dialog.unread_count} \n", flush=True)
+                    self.logger.info(f">Reading messages from entity {entity.id} {entity_title} - U:{dialog.unread_count} \n")
+                    async for message in client.iter_messages(entity, min_id=0, limit=1, reverse=True, filter=InputMessagesFilterEmpty()):
+                        # for message in iter_messages:
+                        ## 如果是 media 类型的消息
+                        if message.media and not isinstance(message.media, MessageMediaWebPage):
+                            # print(f"Media message: {message}", flush=True)
+                            time.sleep(3)  # 每次请求之间等待0.5秒
+                            if dialog.is_user:
+                                try:
+                                    send_result = await self.send_message_to_dye_vat(client, message)
+                                    if send_result:
+                                        await client.delete_messages(entity.id, message.id)
+                                        # print(f"Send result: {send_result}", flush=True)
+                                    #await self.forward_media_to_warehouse(client, message)
+                                except Exception as e:
+                                    print(f"Error forwarding message: {e}", flush=True)
+                                    traceback.print_exc()
+                                finally:
+                                    NEXT_MESSAGE = True
+                            else:
+                                continue
                         else:
-                            continue
-                    else:
-                        time.sleep(0.7)  # 每次请求之间等待0.5秒
-                        await client.delete_messages(entity.id, message.id)
-                        # self.logger.info(f"Delete {message.id} ")
-                        
-                    # print(f"Delete {message.id} ", flush=True)
-                    #await client.delete_messages(entity.id, message.message_id)
+                            time.sleep(0.7)  # 每次请求之间等待0.5秒
+                            try:
+                                match = re.search(r'\|_kick_\|\s*(.*?)\s*(bot)', message.text, re.IGNORECASE)
+                                if match:
+                                    botname = match.group(1) + match.group(2)  # 直接拼接捕获的组
+                                    print(f"Kick:{botname}")
+                                    await client.send_message(botname, "/start")
+                                    await client.send_message(botname, "[~bot~]")
+                                    
+                                    NEXT_MESSAGE = True
+                            except Exception as e:
+                                print(f"Error kicking bot: {e}", flush=True)
 
+
+                            if message.text == '[~bot~]':
+                                print(f"Skip message")
+                            else:
+                                await client.delete_messages(entity.id, message.id)   
+                        current_message = message
+                        print(f"Message: {current_message}", flush=True)
+                    await self.save_scrap_proress(entity.id, current_message.id)            
+                else:
+                    
+                  
+                    if entity.id == 2210941198:
+                        
+                        
+
+                        max_message_id = self.get_max_source_message_id(entity.id)
+                        min_id = max_message_id if max_message_id else 1
+                        self.scrap_message_id = min_id
+
+                        self.logger.info(f">Reading messages from entity {entity.id} {entity_title} - U:{dialog.unread_count} \n")
+                        current_message = None
+
+                        async for message in client.iter_messages(entity, min_id=min_id, limit=500, reverse=True):
+                            # 如果 message.id 可以被 257 整除
+                            if message.id % 12257 == 0:
+                                nonsense_word = Nonsense().generate_greeting()
+                                result_send=await client.send_message(entity.id, f"{nonsense_word}")
+                                # print(f"Message: {nonsense_word}", flush=True)
+                                time.sleep(0.5)
+                                # print(f"Message: {r}", flush=True)
+                               
+                            
+                            current_message = message
+                            if current_message.peer_id:
+                                await self.handle_message(client, message)
+                        await self.save_scrap(current_message, None, None)
+                        await self.scrap_thumbnail_bot(client)
+                        # exit()
+                       
+    async def scrap_thumbnail_bot(self,client):
+
+        # 查询条件和排序
+        # query = Scrap.select().where(Scrap.thumb_file_unique_id.is_null()).order_by(fn.Random()).limit(1)
+        # query = Scrap.select().where((Scrap.thumb_hash.is_null()) & (Scrap.source_bot_id==7294369541) ).order_by(fn.Rand()).limit(1)
+        query = Scrap.select().where((Scrap.thumb_hash.is_null()) ).order_by(fn.Rand()).limit(1)
+        # query = Scrap.select().where((Scrap.thumb_hash.is_null()) ).order_by(id).limit(1)
+        #//7294369541
+        try:
+            scrap_item = query.get()
+        except Scrap.DoesNotExist:
+            print("没有符合条件的 scrap 数据。")
+            return False
+
+        shell_message = namedtuple("ShellMessage", ["text", "id", "user_id","source_chat_id","source_message_id","source_bot_id"])(
+                            text=f"/start {scrap_item.start_key}",
+                            id=0,
+                            user_id=f"{scrap_item.user_id}",
+                            source_chat_id=f"{scrap_item.source_chat_id}",
+                            source_message_id=f"{scrap_item.source_message_id}",
+                            source_bot_id=f"{scrap_item.source_bot_id}",
+                        )
+        await self.shellbot(client, shell_message)
+    
+
+    async def get_image_hash(self,image_path):
+        """计算图片的感知哈希值"""
+        img = PILImage.open(image_path)
+        return str(imagehash.phash(img))  # 使用感知哈希值
+
+    
+    async def fdbot(self, client, message):
+        async with client.conversation("FileDepotBot") as conv:
+            # 根据bot_username 找到 wp_bot 中对应的 bot_name = bot_username 的字典
+            
+            # 发送消息到机器人
+            forwarded_message = await conv.send_message(message.text)
+
+            # print(f"Forwarded message: {forwarded_message}")
+            try:
+                # 获取机器人的响应，等待30秒
+                response = await asyncio.wait_for(conv.get_response(forwarded_message.id), timeout=30)
+
+                # print(f"Response: {response}")
+            except asyncio.TimeoutError:
+                # 如果超时，发送超时消息
+                # await client.send_message(forwarded_message.chat_id, "the bot was timeout", reply_to=message.id)
+                print("Response timeout.")
+                return
+            
+            print(f"Response: {response}\r\n\r\n")
+
+            # **Step 5: 组装 JSON**
+            caption_json = json.dumps({
+                "text": message.text,
+                "content": response.text,
+                "user_id": message.user_id,
+                "message_id": message.id,
+                "chat_id" : message.channel_id,
+            }, ensure_ascii=False, indent=4)
+
+            # print("caption_json:", caption_json)
+
+            if response.media:
+                
+                if hasattr(response, 'grouped_id') and response.grouped_id:
+                    if isinstance(response.peer_id, PeerUser):
+                        chat_id = response.peer_id.user_id
+                    # 获取相册中的所有消息
+                    # print(f"\r\nPeer ID: {response.peer_id}",flush=True)
+                                        
+                    # total = await self.fetch_messages_and_load_more(client, chat_id)
+                    # print(f"Total messages in album: {total}")
+
+                    album_messages = await client.get_messages(response.peer_id, limit=15)
+                    
+                    # 初始化一个空列表，用于存储属于同一相册 (grouped_id) 的消息
+                    album = []
+                    total_items = 0
+                    button_data = None
+                    current_button = None
+                    button_message_id = 0
+                    # 遍历获取到的消息列表
+                    for msg in album_messages:
+                        # 检查当前消息的 grouped_id 是否与目标消息相同
+                        if msg.text:
+                            match = re.search(r'共(\d+)个', msg.text)
+                            if match:
+                                total_items = int(match.group(1))
+                                print(f"总数: {total_items}")
+
+                        if msg.reply_markup:
+                            for row in msg.reply_markup.rows:
+                                for button in row.buttons:
+                                    if isinstance(button, KeyboardButtonCallback) and button.text == "加载更多":
+                                        button_data = button.data.decode()
+                                        print(f"按钮数据: {button_data}")
+                                        current_button = button
+                                        button_message_id = msg.id
+                                        break
+
+                        if msg.grouped_id == response.grouped_id:
+                            # 如果相同，则将该消息添加到相册列表中
+                            album.append(msg)
+                    
+                    # print(f"\r\nAlbum: {album}",flush=True)
+                    if album:
+                        await asyncio.sleep(0.5)  # 间隔80秒
+                        last_message_id = max(row.id for row in album)
+                        # await client.send_file(self.setting['warehouse_chat_id'], album, reply_to=message.id, caption=caption_text, parse_mode='html')
+                        result_send = await self.safe_forward_or_send(client, response.id, response.chat_id, 2119470022, album, caption_json)
+                      
+
+                        # result_send = await client.send_file(
+                        #     2038577446, 
+                        #     album, 
+                        #     disable_notification=False,  # 禁用通知
+                        #     parse_mode='html',
+                        #     caption=caption_json  # 发送 JSON 作为 caption
+                        #     )
+                    
+                    if total_items!=0 and button_data!= None :
+                        await self.send_fake_callback(client, chat_id, button_message_id, button_data,2)
+                        times = ((total_items) // 10)-2
+                        for i in range(times):
+                            await self.fetch_messages_and_load_more(client, chat_id, button_data, caption_json, (i+3))
+                            await asyncio.sleep(7)
+
+                    if album:
+                        return result_send
+
+
+                elif isinstance(response.media, types.MessageMediaPhoto):
+                   
+                    # 处理图片
+                    photo = response.media.photo
+                    message_id = response.id
+                    from_chat_id = response.chat_id
+                    
+
+                    # self.scrap_count += 1
+                    
+                    # **Step 7: 发送图片到用户 6941890966**
+                    
+                    await self.safe_forward_or_send(client, message_id, from_chat_id, 2038577446, photo, caption_json)
+                    # await client.send_file(
+                    #     2038577446,  # 发送到爬略图
+                    #     photo,  # 发送最大尺寸图片
+                    #     disable_notification=False,  # 禁用通知
+                    #     parse_mode='html',
+                    #     caption=caption_json  # 发送 JSON 作为 caption
+                    # )
+                    # print("成功发送 JSON caption 的图片给用户 2038577446")
+                    
+                elif isinstance(response.media, types.MessageMediaDocument):
+                    mime_type = response.media.document.mime_type
+                    if mime_type.startswith('video/'):
+                        # 处理视频
+                        video = response.media.document
+                        # await client.send_file(self.setting['warehouse_chat_id'], video, reply_to=message.id, caption=caption_text, parse_mode='html')
+                        self.logger.info(f"send VIDEO to chat_id: {2038577446}")
+                        return await self.safe_forward_or_send(client, response.id, response.chat_id, 2038577446, video, caption_json)
+
+
+                        # return await client.send_file(
+                        #     2038577446, 
+                        #     video, 
+                        #     disable_notification=False,  # 禁用通知
+                        #     parse_mode='html',
+                        #     caption=caption_json  # 发送 JSON 作为 caption
+                        # )
+                        
+                        
+                        # 调用新的函数
+                        #await self.send_video_to_filetobot_and_publish(client, video, message)
+                    else:
+                        # 处理文档
+                        document = response.media.document
+                        # await client.send_file(self.setting['warehouse_chat_id'], document, reply_to=message.id, caption=caption_text, parse_mode='html')
+                        self.logger.info(f"send DOCUMENT to chat_id: {2038577446}")
+                        return await self.safe_forward_or_send(client, response.id, response.chat_id, 2038577446, document, caption_json)
+                        # return await client.send_file(
+                        #     2038577446, 
+                        #     document, 
+                        #     disable_notification=False,  # 禁用通知
+                        #     parse_mode='html',
+                        #     caption=caption_json  # 发送 JSON 作为 caption
+                        # )
+
+            else:
+                print("Received non-media and non-text response")
+        pass        
+    
+
+    async def safe_forward_or_send(self, client, message_id, from_chat_id, to_chat_id, material, caption_json):
+        try:
+            # 处理单个媒体和多个媒体（album）
+            if isinstance(material, list):  # 如果是列表（album）
+                print(f"📤 发送 Album，共 {len(material)} 个媒体")
+            else:  # 如果是单个媒体
+                print("📤 发送单个媒体(1360)")
+
+
+            # 直接尝试转发消息
+
+            await client.send_file(
+                to_chat_id,  # 发送到爬略图
+                material,  # 发送最大尺寸图片
+                disable_notification=False,  # 禁用通知
+                parse_mode='html',
+                caption=caption_json  # 发送 JSON 作为 caption
+            )
+#135622
+
+            # await client.forward_messages(to_chat_id, message_id, from_chat_id)
+            print("✅ 成功转发消息！")
+        except ChatForwardsRestrictedError:
+            print(f"⚠️ 该消息禁止转发，尝试重新发送...{message_id}")
+            await self.fetch_and_send(client, from_chat_id, message_id, to_chat_id, material, caption_json)
+
+    async def fetch_and_send(self, client, from_chat_id, message_id, to_chat_id, material, caption_json):
+        """如果消息被保护，就先下载后重新发送"""
+
+        new_material = []  # 存储下载后的文件路径
+        message_single = await client.get_messages(from_chat_id, ids=message_id)
+        # 处理单个文件和 album
+        if isinstance(material, list):  # Album
+            for message in material:
+                if message.media:
+                    file_path = await message.download_media()
+                    new_material.append(file_path)  # 追加到列表
+        elif message_single.media:  # 单个文件
+            file_path = await message_single.download_media()
+            new_material = file_path  # 直接赋值为字符串路径
+
+        # 重新发送
+        if new_material:
+            parsed_json = json.loads(caption_json)
+            parsed_json["protect"]="1"
+
+            if "闪照模式5秒后此消息自动销毁" in parsed_json:
+                parsed_json["flash"]="1"
+
+
+            caption_json2 = json.dumps(parsed_json, ensure_ascii=False, indent=4)
+
+            # //new_caption = caption_json2+ "\r\n\r\n" + "#Protect"
+
+            # if "闪照模式5秒后此消息自动销毁" in new_caption:
+                # new_caption = new_caption+ " " + "#Flash"
+
+            await client.send_file(
+                to_chat_id,
+                new_material,
+                disable_notification=False,
+                parse_mode='html',
+                caption=caption_json2
+            )
+            print("✅ 重新发送成功！")
+        else:
+            print("❌ 无法发送，未找到可用媒体")
+
+    # async def fetch_and_send(self, client, from_chat_id, message_id, to_chat_id, material, caption_json):
+    #     new_material = []  # 存储下载后的文件路径
+        
+    #     """如果消息被保护，就下载再发送"""
+    #     message = await client.get_messages(from_chat_id, ids=message_id)
+        parsed_json = json.loads(caption_json)
+        parsed_json["protect"]="1"
+        caption_json = json.dumps(parsed_json, ensure_ascii=False, indent=4)
+    #     if message.media:  # 如果消息包含媒体（图片、视频、文件）
+    #         file_path = await message.download_media()  # 先下载
+    #         await client.send_file(to_chat_id, file_path, caption=caption_json)  # 重新发送
+    #         print("✅ 重新发送媒体成功！")
+    #     elif message.text:  # 如果是纯文本
+    #         await client.send_message(to_chat_id, message.text)
+    #         print("✅ 重新发送文本成功！")
+    #     else:
+    #         print("❌ 该消息既无媒体，也无文本，无法发送")
+
+
+    async def fetch_messages_and_load_more(self, client, chat_id, base_button_data, caption_json, times):
+        album = []
+        button_message_id = 0
+        choose_button_data = await self.modify_button_data(base_button_data, times)
+        album_messages = await client.get_messages(chat_id, limit=15)
+        for msg in album_messages:
+            # 检查当前消息的 grouped_id 是否与目标消息相同
+            if msg.reply_markup:
+                for row in msg.reply_markup.rows:
+                    for button in row.buttons:
+                        if isinstance(button, KeyboardButtonCallback) and button.text == "加载更多":
+                            button_data = button.data.decode()
+                            if choose_button_data in button_data:
+                                print(f"按钮数据: {button_data}")
+                                current_button = button
+                                button_message_id = msg.id
+                            break
+            if msg.media:
+                new_group = None
+                if hasattr(msg, 'grouped_id') and msg.grouped_id:
+                    if new_group == None:
+                        new_group = msg.grouped_id
+
+
+                    if msg.grouped_id == new_group:
+                        # 如果相同，则将该消息添加到相册列表中
+                        album.append(msg)
+        
+        # print(f"\r\nAlbum: {album}",flush=True)
+        if album:
+            await asyncio.sleep(0.5)  # 间隔80秒
+            last_message_id = max(row.id for row in album)
+            # await client.send_file(self.setting['warehouse_chat_id'], album, reply_to=message.id, caption=caption_text, parse_mode='html')
+            try:
+                result_send = await client.send_file(
+                    2038577446, 
+                    album, 
+                    disable_notification=False,  # 禁用通知
+                    parse_mode='html',
+                    caption=caption_json  # 发送 JSON 作为 caption
+                    )
+                
+                await self.send_fake_callback(client, chat_id, button_message_id, button_data, times)
+            except Exception as e:
+                pass
+    
+           
+
+
+    async def modify_button_data(self,button_data, times):
+        parts = button_data.split("@")  # 拆分字符串
+        if len(parts) >= 3 and parts[-1].isdigit():  # 确保格式正确
+            parts[-1] = str(times)  # 直接替换尾数
+            return "@".join(parts)  # 重新拼接字符串
+        else:
+            raise ValueError("button_data 格式错误，无法修改")  # 处理异常情况 
+        
+
+
+    async def send_fake_callback(self, client, chat_id, message_id, button_data, times):
+        # 模拟按钮数据
+        # fake_data = "get_file_set@401@3".encode()  # 转换为 bytes
+        fake_data_str = await self.modify_button_data(button_data, times)
+        fake_data  = fake_data_str.encode()  # 转换为 bytes
+        print(f"模拟发送回调请求，数据: {fake_data.decode()}")
+
+        try:
+            # 发送回调请求，模拟点击按钮
+            await client(GetBotCallbackAnswerRequest(
+                peer=chat_id,       # 聊天 ID
+                msg_id=message_id,  # 关联的消息 ID
+                data=fake_data      # 模拟的按钮数据
+            ))
+            print("✅ 成功发送回调请求")
+        except Exception as e:
+            print(f"⚠️ 发送回调请求失败: {e}")
+
+    async def shellbot(self, client, message):
+        
+        bot_title = "She11PostBot"
+        try:
+           
+            if message.source_bot_id == '7294369541':
+                bot_title = "She11PostBot"
+            elif message.source_bot_id == '7717423153':
+                bot_title = "bujidaobot"
+        except Exception as e:
+            print(f"Error: {e}")
+            
+
+        print(f"Processing Shell Fetch --- botTitle: {bot_title} {message.text}")
+            
+        async with client.conversation(bot_title) as conv:
+            # 根据bot_username 找到 wp_bot 中对应的 bot_name = bot_username 的字典
+            
+            # 发送消息到机器人
+            forwarded_message = await conv.send_message(message.text)
+            bj_file_id = None
+            bj_file_id = message.text.replace("/start file_", "")
+
+            response =  None
+            updateNoneDate = True
+
+            # print(f"Forwarded message: {forwarded_message}")
+            try:
+                # 获取机器人的响应，等待30秒
+                response = await asyncio.wait_for(conv.get_response(forwarded_message.id), timeout=random.randint(5, 10))
+
+                # print(f"Response: {response}")
+            except asyncio.TimeoutError:
+                # 如果超时，发送超时消息
+                # await client.send_message(forwarded_message.chat_id, "the bot was timeout", reply_to=message.id)
+                print("Response timeout.")
+                #return
+            # print(f"Response: {response}\r\n\r\n")
+
+            if not response:
+                updateNoneDate = True
+            elif "请求的文件不存在或已下架" in response.text:
+                updateNoneDate = True
+                     
+            elif response.media:
+                
+                if isinstance(response.media, types.MessageMediaPhoto):
+                    updateNoneDate = False
+                    # 处理图片
+                    photo = response.media.photo
+
+                    # **Step 1: 取得 content1 和 user_name**
+                    content1 = response.text
+                    user_name = None
+                    user_fullname = None
+
+                    if "Posted by" in response.text:
+                        print("response.text:", response.text)
+
+                        parts = response.text.split("Posted by", 1)  # 只分割一次
+                        # content1 = parts[0].replace("\n", "").strip()  # 去掉所有换行符
+                        content1 = self.limit_visible_chars(parts[0].replace("__", "").strip(),200) # 去掉所有换行符
+
+                        # 获取 "Posted by" 之后的文本
+                        after_posted_by = parts[1].strip()
+
+                        # 将after_posted_by 以 /n 分割
+                        after_posted_by_parts = after_posted_by.split("\n")
+                        print("after_posted_by_parts:", after_posted_by_parts)
+
+
+                        # 提取 Markdown 链接文本内容（去除超链接）
+                        match = re.search(r"\[__(.*?)__\]", after_posted_by_parts[0])
+                        print("match:", match)
+                        if match:
+                            user_fullname = match.group(1)  # 取得用户名
+                    else:
+                        content1 = self.limit_visible_chars(content1,200)
+                            
+
+                    # **Step 2: 取得 enc_user_id**
+                    enc_user_id = None
+                    for entity in response.entities or []:
+                        if isinstance(entity, types.MessageEntityTextUrl):
+                            url = entity.url
+                            if url.startswith("https://t.me/She11PostBot?start=up_"):
+                                enc_user_id = url.split("up_")[1]  # 取得 up_ 后的字串
+                                break
+
+                    # **Step 3: 取得 fee & bj_file_id**
+                    fee = None
+                    
+                    if response.reply_markup:
+                        for row in response.reply_markup.rows:
+                            for button in row.buttons:
+                                if isinstance(button, types.KeyboardButtonCallback) and "💎" in button.text:
+                                    fee = button.text.split("💎")[1].strip()  # 获取💎后的数字
+                                    callback_data = button.data.decode()
+                                    if callback_data.startswith("buy@file@"):
+                                        bj_file_id = callback_data.split("buy@file@")[1]
+                                    break
+
+                    # **Step 4: 提取 file_size, duration, buy_time**
+                    file_size, duration, buy_time = None, None, None
+                    size_match = re.search(r"💾([\d.]+ (KB|MB|GB))", response.text)
+                    duration_match = re.search(r"🕐([\d:]+)", response.text)
+                    buy_time_match = re.search(r"🛒(\d+)", response.text)
+
+                    if size_match:
+                        file_size = size_match.group(1)  # 提取 MB 数字
+                    if duration_match:
+                        duration = self.convert_duration_to_seconds(duration_match.group(1))
+                    if buy_time_match:
+                        buy_time = buy_time_match.group(1)  # 提取购买次数
+
+                    # **Tag**
+                    
+
+                    # 输入的字符串
+                    
+                    # 使用正则表达式查找所有的 hashtag
+                    hashtags = re.findall(r'#\S+', response.text)
+
+                    # 输出结果为一个字串
+                    tag_result = ' '.join(hashtags)
+                    
+                    # print(f"{message}")
+                    print(f"4---file_size: {file_size}")
+
+                    # 确保目录存在
+                    os.makedirs('./matrial', exist_ok=True)
+
+                    # 指定文件路径（使用原文件名或自定义命名）
+                    photo_filename = f"{bot_title}_{bj_file_id}.jpg"  # 你也可以用其他命名方式
+                    photo_path = os.path.join('./matrial', photo_filename)
+                    
+                    photo_path = await client.download_media(photo, file=photo_path)
+                    # photo_path = await client.download_media(photo)
+                    
+                    print(f"5.2---Photo path: {photo_path}\r\n")
+                    # 计算图片的感知哈希值
+                    image_hash = await self.get_image_hash(photo_path)
+                    print(f"Image hash: {image_hash}")
+
+                    # **Step 5: 组装 JSON**
+                    caption_json = json.dumps({
+                        "content": content1,
+                        'enc_user_id': enc_user_id,
+                        "user_id": message.user_id,
+                        "user_fullname": user_fullname,
+                        "fee": fee,
+                        "bj_file_id": bj_file_id,
+                        "estimated_file_size": int(self.convert_to_bytes(file_size)),
+                        "duration": duration,
+                        "number_of_times_sold": buy_time,
+                        "tag": tag_result,
+                        "source_bot_id": message.source_bot_id,
+                        "source_chat_id": message.source_chat_id,
+                        "source_message_id": message.source_message_id,
+                        "thumb_hash": image_hash
+                    }, ensure_ascii=False, indent=4)
+
+                    print("caption_json:", caption_json)
+
+                    # self.scrap_count += 1
+
+                    await self.save_scrap(message, caption_json, response)
+                    
+                    # **Step 7: 发送图片到用户 6941890966**
+                    if response.media and isinstance(response.media, types.MessageMediaPhoto):
+                        
+                        to_chat_id = 2000430220
+                        try:
+                            await client.send_file(
+                                to_chat_id,  # 发送到爬略图
+                                photo,  # 发送最大尺寸图片
+                                disable_notification=False,  # 禁用通知
+                                parse_mode='html',
+                                caption=caption_json  # 发送 JSON 作为 caption
+                            )
+                            if bot_title == "she11postbot":
+                                await client.send_file(
+                                    2038577446,  # 发送到爬略图
+                                    photo,  # 发送最大尺寸图片
+                                    disable_notification=False,  # 禁用通知
+                                    parse_mode='html',
+                                    caption=caption_json  # 发送 JSON 作为 caption
+                                )
+                           
+                           
+                        except ChatForwardsRestrictedError:
+                            await client.send_file(
+                                to_chat_id,
+                                photo_path,
+                                disable_notification=False,
+                                parse_mode='html',
+                                caption=caption_json
+                            )
+                            if bot_title == "She11PostBot":
+                                await client.send_file(
+                                    2059873665,  # 发送到爬略图
+                                    photo_path,  # 发送最大尺寸图片
+                                    disable_notification=False,  # 禁用通知
+                                    parse_mode='html',
+                                    caption=f"{content1} - {bj_file_id}"  # 发送 JSON 作为 caption
+                                )
+
+
+                            
+
+                        # await client.send_file(self.setting['warehouse_chat_id'], album, reply_to=message.id, caption=caption_text, parse_mode='html')
+                        
+                        
+
+
+                        # print("成功发送 JSON caption 的图片给用户 2046650050")
+                    # else:
+                    #     print("Received non-media and non-text response")
+                    
+              
+            else:
+                print(f"Received non-media and non-text response {message.source_bot_id} / {message.text}")
+
+
+            if updateNoneDate:
+                start_key = message.text.replace("/start ", "")
+
+                scrap = Scrap.select().where(
+                    (Scrap.start_key == start_key)
+                    & (Scrap.source_bot_id == message.source_bot_id)
+                ).first()
+
+                if scrap:
+                    if scrap.thumb_hash != "NOEXISTS":
+                        scrap.thumb_hash = "NOEXISTS" 
+                        scrap.save()
+                        print(f"1请求的文件不存在或已下架 {message.text} - {start_key}")
+                    else:
+                        print(f"2请求的文件不存在或已下架 {message.text} - {start_key}")
+                        pass       
+            
+        pass
+
+
+
+
+    def limit_visible_chars(self,text: str, max_chars: int = 300) -> str:
+        count = 0
+        result = ''
+        for char in text:
+            # 跳过控制字符（如换行、回车等）
+            if unicodedata.category(char)[0] == 'C':
+                result += char
+                continue
+            count += 1
+            result += char
+            if count >= max_chars:
+                break
+        return result
+
+
+    def get_max_source_message_id(self, source_chat_id):
+        """查询数据库，获取指定 source_chat_id 的最大 source_message_id"""
+        try:
+            # 查询 scrap_progress 表，获取指定 chat_id 的最大 message_id
+            record = ScrapProgress.select().where((ScrapProgress.chat_id == source_chat_id) & 
+                (ScrapProgress.api_id == self.config['api_id'])).order_by(ScrapProgress.update_datetime.desc()).limit(1).get()
+            return record.message_id
+        except DoesNotExist:
+            # 若无记录，则新增一条记录，默认 message_id 可设为 0
+            new_record = ScrapProgress.create(
+                chat_id=source_chat_id,
+                api_id=self.config['api_id'],
+                message_id=0,
+                update_datetime=datetime.now()
+            )
+            self.logger.info(f"No existing record, created new ScrapProgress for chat_id={source_chat_id}")
+            return new_record.message_id
+    
+        except Exception as e:
+            self.logger.error(f"Error fetching max source_message_id: {e}")
+            return None  
+
+
+    async def get_caption_from_entity(self, response, client):
+        if response.media:
+            if isinstance(response.media, types.MessageMediaPhoto):
+                # 处理图片
+                photo = response.media.photo
+
+                # **Step 1: 取得 content1 和 user_name**
+                content1 = response.text
+                user_name = None
+                user_fullname = None
+
+                if "Posted by" in response.text:
+                    print("response.text:", response.text)
+
+                    parts = response.text.split("Posted by", 1)  # 只分割一次
+                    # content1 = parts[0].replace("\n", "").strip()  # 去掉所有换行符
+                    content1 = parts[0].replace("__", "").strip()  # 去掉所有换行符
+
+                    # 获取 "Posted by" 之后的文本
+                    after_posted_by = parts[1].strip()
+
+                    # 将after_posted_by 以 /n 分割
+                    after_posted_by_parts = after_posted_by.split("\n")
+                    print("after_posted_by_parts:", after_posted_by_parts)
+
+
+                    # 提取 Markdown 链接文本内容（去除超链接）
+                    match = re.search(r"\[__(.*?)__\]", after_posted_by_parts[0])
+                    print("match:", match)
+                    if match:
+                        user_fullname = match.group(1)  # 取得用户名
+                    
+
+                # **Step 2: 取得 enc_user_id**
+                enc_user_id = None
+                for entity in response.entities or []:
+                    if isinstance(entity, types.MessageEntityTextUrl):
+                        url = entity.url
+                        if url.startswith("https://t.me/She11PostBot?start=up_"):
+                            enc_user_id = url.split("up_")[1]  # 取得 up_ 后的字串
+                            break
+
+                # **Step 3: 取得 fee & bj_file_id**
+                fee = None
+                bj_file_id = None
+                if response.reply_markup:
+                    for row in response.reply_markup.rows:
+                        for button in row.buttons:
+                            if isinstance(button, types.KeyboardButtonCallback) and "💎" in button.text:
+                                fee = button.text.split("💎")[1].strip()  # 获取💎后的数字
+                                callback_data = button.data.decode()
+                                if callback_data.startswith("buy@file@"):
+                                    bj_file_id = callback_data.split("buy@file@")[1]
+                                break
+
+                # **Step 4: 提取 file_size, duration, buy_time**
+                file_size, duration, buy_time = None, None, None
+                size_match = re.search(r"💾([\d.]+ (KB|MB|GB))", response.text)
+                duration_match = re.search(r"🕐([\d:]+)", response.text)
+                buy_time_match = re.search(r"🛒(\d+)", response.text)
+
+                if size_match:
+                    file_size = size_match.group(1)  # 提取 MB 数字
+                if duration_match:
+                    duration = self.convert_duration_to_seconds(duration_match.group(1))
+                if buy_time_match:
+                    buy_time = buy_time_match.group(1)  # 提取购买次数
+
+                # **Tag**
+                
+
+                # 输入的字符串
+                
+                # 使用正则表达式查找所有的 hashtag
+                hashtags = re.findall(r'#\S+', response.text)
+
+                # 输出结果为一个字串
+                tag_result = ' '.join(hashtags)
+                
+                # print(f"{message}")
+                print(f"4---file_size: {file_size}")
+
+                
+
+                photo_path = await client.download_media(photo)
+                
+                print(f"5.2---Photo path: {photo_path}\r\n")
+                # 计算图片的感知哈希值
+                image_hash = await self.get_image_hash(photo_path)
+                print(f"Image hash: {image_hash}")
+
+                # **Step 5: 组装 JSON**
+                caption_json = json.dumps({
+                   
+                    'enc_user_id': enc_user_id,
+                    "fee": fee,
+                    "bj_file_id": bj_file_id,
+                    "estimated_file_size": int(self.convert_to_bytes(file_size)),
+                    "duration": duration,
+                    "number_of_times_sold": buy_time,
+                    "tag": tag_result,
+                    "thumb_hash": image_hash
+                }, ensure_ascii=False, indent=4)
+
+                return caption_json
+
+                # self.scrap_count += 1
+
+            
+    async def save_scrap_proress(self, entity_id, message_id):   
+        record, created = ScrapProgress.get_or_create(
+            chat_id=entity_id,  # 使用 channel_id 作为 chat_id
+            api_id=self.config['api_id'],
+        )
+
+        # 更新 message_id 和 caption_json
+        record.message_id = message_id
+        #  record.update_datetime 当前时间
+        record.update_datetime = datetime.now()
+        record.save()
+
+
+    async def save_scrap(self, message, caption_json, response):
+        # 查找是否已经存在相应 chat_id 的记录
+
+       
+
+        # 确保 message 是 Telethon Message 对象
+        if message and hasattr(message, 'peer_id'):
+            chat_id = message.peer_id.channel_id
+        else:
+            return  # 如果没有 channel_id 属性，退出
+
+      
+       
+        record, created = ScrapProgress.get_or_create(
+            chat_id=message.peer_id.channel_id,  # 使用 channel_id 作为 chat_id
+            api_id=self.config['api_id'],
+        )
+
+        # 更新 message_id 和 caption_json
+        record.message_id = message.id
+        #  record.update_datetime 当前时间
+        record.update_datetime = datetime.now()
+        record.save()
+
+        # if created:
+        #     self.logger.info(f"New record created for chat_id: {message.peer_id.channel_id}")
+        # else:
+        #     self.logger.info(f"Record updated for chat_id: {message.peer_id.channel_id}")
+
+
+    async def handle_message(self, client, message):
+        """处理收到的消息"""
+        # pattern = r"https://t\.me/FileDepotBot\?start=[^\s]+"
+        pattern = r"https://t\.me/FileDepotBot\?start=([^\s]+)"
+        message_text_str = message.text;
+        # message_text_str="https://t.me/FileDepotBot?start=2Xw4whD6"
+        
+        checkText = message.text
+       
+        if not message.is_reply and (checkText or "").startswith("/hongbao"):
+            return
+            # 正则模式：匹配 "/hongbao 数字 数字"
+            pattern_hongbao = r"^/hongbao\s+(\d+)\s+(\d+)$"
+            match = re.match(pattern_hongbao, checkText)
+            if match:
+                points = int(match.group(1))  # 积分数
+                count = int(match.group(2))   # 红包个数
+
+
+                lowkey_messages = [
+                    "哦哦，原来是这样啊～",
+                    "好像有点意思欸",
+                    "这我记下了",
+                    "感觉说得都挺有道理的",
+                    "学到了学到了",
+                    "有点复杂",
+                    "嗯……这个确实有点东西",
+                    "啊这～",
+                    "大家都好有见地啊",
+                    "蹲一个后续",
+                    "信息量有点大，我缓缓",
+                    "可以",
+                    "记下了",
+                    "666",
+                    "蹲一个发展",
+                    "轻轻飘过",
+                    "默默围观+1",
+                    "谢谢大佬！",
+                    "手动比心💗",
+                    "膜拜了！",
+                    "谢谢大佬 太棒了"
+                ]
+
+                # 拼接为格式化文本
+                lowkey_list = "\n".join([f"<code>{msg}</code>" for msg in lowkey_messages])
+
+
+                                # 感谢语列表（低调简短）
+                thank_you_messages = [
+                    "多谢老板照顾 🙏",
+                    "感谢好意～",
+                    "收到，谢啦",
+                    "小红包，大人情",
+                    "心领了，谢~",
+                    "感恩不尽",
+                    "谢谢老板",
+                    "收下啦～",
+                    "感谢支持",
+                    "老板万岁 😎"
+                ]
+
+                # 拼接感谢语列表为格式化文本
+                thanks_list = "\n".join([f"<code>{msg}</code>" for msg in thank_you_messages])
+
+
+                chat_id_cleaned = str(message.chat_id).replace("-100", "", 1)
+                message_id_next = message.id+2
+
+                now = datetime.now().strftime("%H:%M:%S")
+                message_text = f"{now}\r\n{lowkey_list}\r\n\r\n{thanks_list}\n\r\n https://t.me/c/{chat_id_cleaned}/{message_id_next}"
+                
+                try:
+
+                    sent_message = await client.send_message(
+                        2059873665, 
+                        message_text,
+                        parse_mode="html"
+                        )
+                    sleep(0.7)
+                    await client.delete_messages(2059873665, sent_message.id - 1)
+                    await client.delete_messages(2059873665, sent_message.id - 2)
+                    await client.delete_messages(2059873665, sent_message.id - 3)
+                except FloodWaitError as e:
+                    print(f"FloodWaitError: Waiting for {e.seconds} seconds.")
+                    await asyncio.sleep(e.seconds)
+
+                
+
+                print(f"{points} {count}")
+            pass
+
+        elif message_text_str:
+            matches = re.findall(pattern, message_text_str)
+            for match in matches:
+                # 创建 NamedTuple 代替 dict
+                FileDepotMessage = namedtuple("FileDepotMessage", ["text", "id", "user_id","channel_id"])
+               
+                message_text = 'FileDepotBot_' + match
+
+                print(f"Message: {message_text}\r\n\r\n")
+                user_id = None
+                channel_id = None
+                if message.from_id and isinstance(message.from_id, PeerUser):
+                    user_id = message.from_id.user_id
+                # 获取频道 ID（如果是 PeerChannel）
+                if isinstance(message.peer_id, PeerChannel):
+                    channel_id = message.peer_id.channel_id    
+                # 创建对象
+                filedepotmessage = FileDepotMessage(text=message_text, id=message.id, user_id=user_id, channel_id=channel_id)
+
+                await self.fdbot(client,filedepotmessage)
+
+        if message.from_id and isinstance(message.from_id, PeerUser):
+            if message.from_id.user_id == 7294369541:
+                await self.process_shellbot_chat_message(client,message)
+    
+    async def process_shellbot_chat_message(self, client,message):
+        ensure_connection()  # ✅ 保证数据库连接活着
+        """处理 ShellBot 消息"""
+        if not message.reply_markup:
+            return
+
+        for row in message.reply_markup.rows:
+            # print(f"Row: {message}")
+            for button in row.buttons:
+                if isinstance(button, KeyboardButtonUrl) and button.text in {'👀查看', '👀邮局查看'}:
+                    user_id = None
+                    # user_id = self.extract_mention_user_id(message)
+                    # user_fullname = None
+                    # content =  message.text
+                    # if "Posted by" in message.text:
+                    #     # print("response.text:", message.text)
+
+                    #     parts = message.text.split("Posted by", 1)  # 只分割一次
+                    #     # content1 = parts[0].replace("\n", "").strip()  # 去掉所有换行符
+                    #     content = parts[0].replace("__", "").strip()  # 去掉所有换行符
+
+                    #     # 获取 "Posted by" 之后的文本
+                    #     after_posted_by = parts[1].strip()
+
+                    #     # 将after_posted_by 以 /n 分割
+                    #     after_posted_by_parts = after_posted_by.split("\n")
+                    #     # print("after_posted_by_parts:", after_posted_by_parts)
+
+
+                    #     # 提取 Markdown 链接文本内容（去除超链接）
+                    #     match = re.search(r"\[__(.*?)__\]", after_posted_by_parts[0])
+                       
+                    #     if match:
+                    #         user_fullname = match.group(1)  # 取得用户名
+                    #         # print("提取的用户名:", user_fullname)
+                    #     else:
+                    #         user_fullname=None
+                    #         # print("未找到用户名")
+                        
+
+                    match = re.search(r"(?i)start=([a-zA-Z0-9_]+)", button.url)
+                    if match:
+                        
+                        if message.peer_id.channel_id:
+                            source_chat_id = message.peer_id.channel_id
+                        else:
+                            source_chat_id = 0
+
+
+
+
+                        shell_message = namedtuple("ShellMessage", ["text", "id", "start_key", "user_id","source_chat_id","source_message_id","source_bot_id"])(
+                            text=f"/start {match.group(1)}",
+                            id=message.id,
+                            start_key=f"{match.group(1)}",
+                            user_id=user_id,
+                            source_chat_id=source_chat_id,
+                            source_message_id=message.id,
+                            source_bot_id=7294369541,
+                            #user_fullname=user_fullname,
+                            #content=content
+                        )
+                        print(f"Shell message: {shell_message}")
+
+                        # 查找是否存在记录
+                        scrap = Scrap.select().where(
+                            (Scrap.start_key == shell_message.start_key)
+                            #& (Scrap.source_bot_id == message.from_id.user_id)
+                        ).first()
+
+                        if scrap:
+                            # 如果记录存在，则进行更新
+                            # scrap.content = shell_message.content
+                            # scrap.user_id = shell_message.user_id
+                            # scrap.user_fullname = shell_message.user_fullname
+                            scrap.source_chat_id = shell_message.source_chat_id
+                            scrap.source_message_id = shell_message.source_message_id
+                            scrap.save()  # 保存更新
+                            print("----- Record updated")
+                        else:
+                            # 如果记录不存在，则插入新记录
+                            Scrap.create(
+                                start_key=shell_message.start_key,
+                                source_bot_id=message.from_id.user_id,
+                                #content=shell_message.content,
+                                #user_id=shell_message.user_id,
+                                #user_fullname=shell_message.user_fullname,
+                                source_chat_id=shell_message.source_chat_id,
+                                source_message_id=shell_message.source_message_id,
+                            )
+                            print("----- NEW : Record created")
+                        
+                        
+                        await self.shellbot(client, shell_message)
+
+
+    def extract_mention_user_id(self, message):
+        """提取消息中提及的用户 ID"""
+        if message.entities:
+            for entity in message.entities:
+                if isinstance(entity, MessageEntityMentionName):
+                    return entity.user_id
+        return None
+
+
+
+    def convert_to_bytes(self,size_str):
+        # 定义单位转换字典
+        unit_to_bytes = {
+            'B': 1,
+            'KB': 1024,
+            'MB': 1024 ** 2,
+            'GB': 1024 ** 3,
+            'TB': 1024 ** 4
+        }
+
+        try:
+            # 匹配数字和单位
+            size, unit = size_str.split()
+
+            # 转换为数字并查找单位对应的字节数
+            size = float(size)
+            bytes_value = size * unit_to_bytes[unit.upper()]
+        except Exception as e:
+            print(f"Error: {e}")
+            bytes_value = 0
+            
+        return bytes_value
+
+        
+           
+    def convert_duration_to_seconds(self,duration):
+        parts = list(map(int, duration.split(":")))
+        return sum(x * 60 ** i for i, x in enumerate(reversed(parts)))
+    
     async def load_tg_setting(self, client,chat_id, message_thread_id=0):
         try:
             chat_entity = await client.get_entity(int(chat_id))
@@ -1114,12 +2231,18 @@ class lybot:
             return json.loads("{}")
 
     # show_caption = yes, no
-    async def send_message_to_dye_vat(self, client, message):
+    async def send_message_to_dye_vat(self, client, message, force_chat_id=None):
         last_message_id = message.id
         # 构建 caption
 
         try:
-            destination_chat_id = self.setting['warehouse_chat_id']
+            #2063167161,
+            # destination_chat_id = self.setting['warehouse_chat_id']
+
+            ids = [2017145941, 2000730581, 1997235289, 2063167161]
+
+            destination_chat_id = random.choice(ids)
+
             match = re.search(r'\|_forward_\|\s*@([^\s]+)', message.message, re.IGNORECASE)
             if match:
                 captured_str = match.group(1).strip()  # 捕获到的字符串
@@ -1127,8 +2250,16 @@ class lybot:
                 captured_str = str(captured_str)
                 if captured_str.startswith('-100'):
                     captured_str = captured_str.replace('-100','')
-                destination_chat_id = int(captured_str)
+                #判断 captured_str 是否为数字
+                if captured_str.isdigit():
+                    destination_chat_id = int(captured_str)
+                else:
+                    destination_chat_id = str(captured_str)
 
+            if force_chat_id !=None:
+                destination_chat_id = force_chat_id
+
+            
 
             if hasattr(message, 'grouped_id') and message.grouped_id:
                 
@@ -1153,7 +2284,7 @@ class lybot:
                     # 处理视频
                     video = message.media.document
                     # await client.send_file(self.setting['warehouse_chat_id'], video, reply_to=message.id, caption=caption_text, parse_mode='html')
-                    
+                    self.logger.info(f"send VIDEO to chat_id: {destination_chat_id}")
                     return await client.send_file(destination_chat_id, video, parse_mode='html')
                     
                     
@@ -1163,11 +2294,13 @@ class lybot:
                     # 处理文档
                     document = message.media.document
                     # await client.send_file(self.setting['warehouse_chat_id'], document, reply_to=message.id, caption=caption_text, parse_mode='html')
+                    self.logger.info(f"send DOCUMENT to chat_id: {destination_chat_id}")
                     return await client.send_file(destination_chat_id, document, parse_mode='html')
                   
             elif isinstance(message.media, types.MessageMediaPhoto):
                 # 处理图片
                 photo = message.media.photo
+                self.logger.info(f"send PHOTO to chat_id: {destination_chat_id}")
                 return await client.send_file(destination_chat_id, photo, parse_mode='html')
                 
                
@@ -1175,14 +2308,29 @@ class lybot:
                 print("Received media, but not a document, video, photo, or album.")
         except WorkerBusyTooLongRetryError:
             print(f"WorkerBusyTooLongRetryError encountered. Skipping message {message.id}.")
+
+        except ValueError as e:
+            
+            if ("Cannot find any entity corresponding to" in str(e)) or ("Could not find the input entity for PeerUser" in str(e)):
+                if destination_chat_id == self.setting['warehouse_chat_id']:
+                    self.logger.error(f"WAREHOSE WERE BANNED : {destination_chat_id}")
+                else:
+                    self.logger.error(f"Chat_ID_not_found {destination_chat_id}, will resent to {self.setting['warehouse_chat_id']}")
+                    return await self.send_message_to_dye_vat(client, message, self.setting['warehouse_chat_id'])
+            else:
+                self.logger.error(f"ValueError:{e}")
+        # 处理错误，例如记录日志或通知用户
+        
         except Exception as e:
-            print(f"An error occurred here 1144: {e}")
-            #取得错误的行号
+            # 捕获所有其他异常
+            print(f"(4)An error occurred: {e}")
             exc_type, exc_obj, exc_tb = sys.exc_info()
             line_number = exc_tb.tb_lineno
             print(f"Error at line {line_number}")
             print(f"destination_chat_id: {destination_chat_id}")
             traceback.print_exc()
+
+
         return None
     
         

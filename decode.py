@@ -1,15 +1,10 @@
-from vendor.class_lycode import LYCode  # 导入 LYClass
+from utils.aes_crypto import AESCrypto
 
-lycode = LYCode()
 
-row = {
-    'file_unique_id': 'AQADaasxG5DaiUd-',
-    'file_id': 'AgACAgEAAx0Ce204aAADUmcd23cD8-vfl1q4UkQX4pQhHYxvAAJpqzEbkNqJRwXXoPx8L0iOAQADAgADeQADNgQ',
-    'bot': 'SalaiZTDBOT',
-    'file_type': 'photo'
-}
-
-text = lycode.encode(row['file_unique_id'], row['file_id'], row['bot'], row['file_type'])
-print(text)
-row2 = lycode.decode(text)
-print(row2)
+AES_KEY = "fjd#jdsfdlsm3234fsdf"
+crypto = AESCrypto(AES_KEY)
+# encdoe = crypto.aes_encode("s;DuEe6;7gLNgI")
+encdoe = "wkYzOqSHRpNElLaeg_e5R1hCR3dwY3hKY1loQ0lONzFRUUJPQWc9PQ"
+# encdoe = "GmarknvSQUUj-wUWRg-wQ1hnOG84VDJXQzR5U3lKVzJUNXFHSkE9PQ"
+print(f"{encdoe}")
+print(crypto.aes_decode(encdoe))

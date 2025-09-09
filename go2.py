@@ -310,8 +310,8 @@ async def handle_bot_message(update: Update, context) -> None:
 
                 if unparse_enc:
                     if bot_mode == 'enctext':
-                        if bot_username == "datapanbot":
-                            bot_username = "ShowFilesBot"
+                        # if bot_username == "datapanbot":
+                        #     bot_username = "ShowFilesBot"
                         response += f"<pre>{match_results}</pre> via @{bot_username}\n\n"
                     elif bot_mode == 'link':
                         response += f"{match_results}\n\n"

@@ -1,0 +1,11 @@
+# 数据库相关
+peewee==3.17.1
+
+mysqlclient>=2.2.0  # MySQL 驱动（使用 MySQL）
+psycopg2-binary>=2.9.9  # PostgreSQL 驱动（若同步至 PostgreSQL）
+
+# 中文分词
+jieba>=0.42.1
+
+# 环境变量加载
+python-dotenv>=1.0.1

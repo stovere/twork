@@ -5,6 +5,7 @@ from telethon import TelegramClient, sync
 import os
 from vendor.class_bot import LYClass  # 导入 LYClass
 from vendor.wpbot import wp_bot  # 导入 wp_bot
+from telethon.sessions import StringSession
 import asyncio
 import time
 import re
@@ -15,16 +16,27 @@ from telethon.tl.types import InputMessagesFilterEmpty, Message, User, Chat, Cha
 # 检查是否在本地开发环境中运行
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(dotenv_path='.24066130.decode.env')
 
 # 从环境变量中获取值
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 phone_number = os.getenv('PHONE_NUMBER')
 session_name = api_id + 'session_name'  # 确保与上传的会话文件名匹配
+SESSION_STRING  = os.getenv("USER_SESSION_STRING")
+
 
 # 创建客户端
-client = TelegramClient(session_name, api_id, api_hash)
+
+
+if SESSION_STRING:
+    print("【Telethon】使用 StringSession 登录。",flush=True)
+    client = TelegramClient(StringSession(SESSION_STRING), api_id, api_hash)
+    
+else:
+    client = TelegramClient(session_name, api_id, api_hash)
+
+
 
 try:
     config = {
@@ -54,7 +66,7 @@ except ValueError:
     
 #max_process_time 設為 600 秒，即 10 分鐘
 max_process_time = 1500  # 10分钟
-max_media_count = 55  # 10个媒体文件
+max_media_count = 30  # 10个媒体文件
 max_count_per_chat = 11  # 每个对话的最大消息数
 max_break_time = 90  # 休息时间
 

@@ -5,6 +5,9 @@ from vendor.class_bot import LYClass  # 导入 LYClass
 
 
 
+
+
+
 # 检查是否在本地开发环境中运行
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
