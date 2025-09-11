@@ -85,7 +85,7 @@ jobs:
         CONFIGURATION: ${{ secrets.CONFIGURATION }}
         AES_KEY: ${{ secrets.AES_KEY }}
       run: |
-        python news_main.py
+        python news_update.py
 
    
     - name: Delete old workflow runs
