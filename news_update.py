@@ -11,7 +11,11 @@ import asyncpg
 from dotenv import load_dotenv
 
 # ------------------ 环境配置 ------------------
-load_dotenv(dotenv_path=".news.env")
+
+
+if not os.getenv('GITHUB_ACTIONS'):
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=".news.env")
 
 MYSQL_DB_HOST = os.getenv("MYSQL_DB_HOST", "127.0.0.1")
 MYSQL_DB_PORT = int(os.getenv("MYSQL_DB_PORT", "3306"))
