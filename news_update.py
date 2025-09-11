@@ -5,23 +5,38 @@ import os
 import time
 import asyncio
 from typing import List, Tuple
-
+import json
 import aiomysql
 import asyncpg
-from dotenv import load_dotenv
+
 
 # ------------------ 环境配置 ------------------
-
 
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
     load_dotenv(dotenv_path=".news.env")
 
-MYSQL_DB_HOST = os.getenv("MYSQL_DB_HOST", "127.0.0.1")
-MYSQL_DB_PORT = int(os.getenv("MYSQL_DB_PORT", "3306"))
-MYSQL_DB_USER = os.getenv("MYSQL_DB_USER", "root")
-MYSQL_DB_PASSWORD = os.getenv("MYSQL_DB_PASSWORD", "")
-MYSQL_DB_NAME = os.getenv("MYSQL_DB_NAME", "telebot")
+config = {}
+# 嘗試載入 JSON 並合併參數
+try:
+    configuration_json = json.loads(os.getenv('CONFIGURATION', '') or '{}')
+    if isinstance(configuration_json, dict):
+        config.update(configuration_json)
+except Exception as e:
+    print(f"⚠️ 無法解析 CONFIGURATION：{e}")
+
+
+MYSQL_DB_HOST = config.get('db_host', os.getenv('MYSQL_DB_HOST', 'localhost'))
+MYSQL_DB_USER = config.get('db_user', os.getenv('MYSQL_DB_USER', ''))
+MYSQL_DB_PASSWORD = config.get('db_password', os.getenv('MYSQL_DB_PASSWORD', ''))
+MYSQL_DB_NAME = config.get('db_name', os.getenv('MYSQL_DB_NAME', ''))
+MYSQL_DB_PORT = int(config.get('db_port', os.getenv('MYSQL_DB_PORT', 3306)))
+
+# MYSQL_DB_HOST = os.getenv("MYSQL_DB_HOST", "127.0.0.1")
+# MYSQL_DB_PORT = int(os.getenv("MYSQL_DB_PORT", "3306"))
+# MYSQL_DB_USER = os.getenv("MYSQL_DB_USER", "root")
+# MYSQL_DB_PASSWORD = os.getenv("MYSQL_DB_PASSWORD", "")
+# MYSQL_DB_NAME = os.getenv("MYSQL_DB_NAME", "telebot")
 
 DB_DSN = os.getenv("DB_DSN", "postgres://postgres:postgres@127.0.0.1:5432/telebot")
 
