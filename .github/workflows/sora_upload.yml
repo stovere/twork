@@ -1,8 +1,8 @@
 name: Deploy Sora
 
 on: 
-  # schedule:
-  #   - cron: '1 */1 * * *'  # 每1分钟触发一次
+  schedule:
+    - cron: '1 */1 * * *'  # 每小时的1分触发一次
   push: 
     branches: 
       - master  # 当推送到 master 分支时触发
