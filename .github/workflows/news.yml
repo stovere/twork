@@ -2,7 +2,7 @@ name: Deploy News
 
 on: 
   schedule:
-    - cron: '*/28 * * * *'  # 每28分钟触发一次
+    - cron: '28 */1 * * *'  # 每28分钟触发一次
   push: 
     branches: 
       - master  # 当推送到 master 分支时触发
