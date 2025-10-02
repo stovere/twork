@@ -4,11 +4,12 @@
 import os
 import time
 import asyncio
-from typing import List, Tuple
+
 import json
 import aiomysql
 import asyncpg
-
+from datetime import datetime
+from typing import List, Tuple, Optional
 
 # ------------------ 环境配置 ------------------
 
@@ -50,26 +51,17 @@ ALLOW_CREATE_MEMBERSHIP = int(os.getenv("ALLOW_CREATE_MEMBERSHIP", "0"))
 # 0 = 只更新已存在的 news_user（不插入）
 # 1 = 允许 UPSERT（不存在则插入）
 
-# ------------------ PG 索引保证 ------------------
+
+# ------------------ PG 索引保证（以 business_type+content_id 为唯一键） ------------------
 PG_ENSURE_INDEXES = """
 DO $$
 BEGIN
-    -- news_user: (user_id, business_type) 唯一
     IF NOT EXISTS (
         SELECT 1 FROM pg_indexes
-        WHERE schemaname='public' AND indexname='ux_news_user_userid_bt'
+        WHERE schemaname='public' AND indexname='ux_news_content_business_contentid'
     ) THEN
-        CREATE UNIQUE INDEX ux_news_user_userid_bt
-        ON news_user (user_id, business_type);
-    END IF;
-
-    -- news_content: (bot_name, content_id) 唯一（与 MySQL 对齐）
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_indexes
-        WHERE schemaname='public' AND indexname='ux_news_content_bot_contentid'
-    ) THEN
-        CREATE UNIQUE INDEX ux_news_content_bot_contentid
-        ON news_content (bot_name, content_id);
+        CREATE UNIQUE INDEX ux_news_content_business_contentid
+        ON news_content (business_type, content_id);
     END IF;
 END $$;
 """
@@ -231,10 +223,37 @@ async def sync_membership_to_news_user(mysql_pool, pg_pool):
 
     print(f"[DONE:user] 读取 {processed}，UPSERT {upserted_total}，跳过 {skipped_total}")
 
+
+# ------------------ 工具函数 ------------------
+
+def parse_created_at(value) -> Optional[datetime]:
+    """
+    将 MySQL 的 created_at（可能为 datetime、字符串、int 秒）尽量解析为 datetime。
+    解析失败返回 None（表示不覆盖 PG 现有值）。
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    # 纯数字（时间戳秒）
+    try:
+        if isinstance(value, (int, float)) or (isinstance(value, str) and value.isdigit()):
+            return datetime.fromtimestamp(int(value))
+    except Exception:
+        pass
+    # 常见字符串格式尝试
+    if isinstance(value, str):
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S", "%Y-%m-%d", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(value[:19], fmt)
+            except Exception:
+                continue
+    return None
+
 # ------------------ news_content 迁移（MySQL → PG → 删 MySQL） ------------------
+# ------------------ news_content 迁移（MySQL → PG → 删 MySQL） ------------------
+
 MYSQL_COUNT_NEWS = "SELECT COUNT(*) FROM news_content WHERE id > %s;"
-
-
 
 async def fetch_mysql_total_news(conn: aiomysql.Connection, start_id: int) -> int:
     async with conn.cursor() as cur:
@@ -245,141 +264,70 @@ async def fetch_mysql_total_news(conn: aiomysql.Connection, start_id: int) -> in
 async def fetch_mysql_batch_news(conn: aiomysql.Connection, last_id: int, limit: int) -> List[Tuple]:
     MYSQL_FETCH_NEWS = """
     SELECT
-        id, title, text, file_id, button_str, bot_name,
+        id, title, text, file_id, file_type, button_str, bot_name,
         created_at, business_type, content_id, thumb_file_unique_id
     FROM news_content
     WHERE id > %s
     ORDER BY id
     LIMIT %s;
     """
-
-
     async with conn.cursor() as cur:
         await cur.execute(MYSQL_FETCH_NEWS, (last_id, limit))
         return await cur.fetchall()
+
 async def upsert_news_content_pg(pg: asyncpg.Connection, rows: List[tuple]) -> None:
     """
-    rows: [(id, title, text, file_id, button_str, bot_name,
-            created_at, business_type, content_id, thumb_file_unique_id)]
-    三步法（更新时不更新 file_id）：
-      1) UPDATE ... WHERE thumb_file_unique_id = $8
-      2) UPDATE ... WHERE (bot_name = $4 AND content_id = $7)
-      3) INSERT ... ON CONFLICT (id) DO UPDATE ...（不更新 file_id）
-    统一把 created_at 视为“秒级时间戳”，进入 PG 用 to_timestamp()。
+    以 (business_type, content_id) 为唯一键进行 UPSERT。
+    不写入/不更新 file_id；不使用 MySQL 的 id。
     """
-
-    # ① 仅更新除 file_id 以外字段（不改 file_id）
-    UPDATE_BY_THUMB = """
-    UPDATE news_content AS t SET
-        title = COALESCE($1, t.title),
-        text  = COALESCE($2, t.text),
-        -- file_id 不更新
-        file_type = 'photo',
-        button_str = COALESCE($3, t.button_str),
-        bot_name   = COALESCE($4, t.bot_name),
-        created_at = COALESCE(to_timestamp($5), t.created_at),
-        business_type = COALESCE($6, t.business_type),
-        content_id    = COALESCE($7, t.content_id),
-        thumb_file_unique_id = COALESCE($8, t.thumb_file_unique_id)
-    WHERE t.thumb_file_unique_id = $8
-    RETURNING 1;
-    """
-
-    # ② 仅更新除 file_id 以外字段（不改 file_id），并且严格用 (bot_name, content_id) 联合匹配
-    UPDATE_BY_BOT_CONTENTID = """
-    UPDATE news_content AS t SET
-        title = COALESCE($1, t.title),
-        text  = COALESCE($2, t.text),
-        -- file_id 不更新
-        file_type = 'photo',
-        button_str = COALESCE($3, t.button_str),
-        bot_name   = COALESCE($4, t.bot_name),
-        created_at = COALESCE(to_timestamp($5), t.created_at),
-        business_type = COALESCE($6, t.business_type),
-        content_id    = COALESCE($7, t.content_id),
-        thumb_file_unique_id = COALESCE($8, t.thumb_file_unique_id)
-    WHERE t.bot_name = $4 AND t.content_id = $7
-    RETURNING 1;
-    """
-
-    # ③ 插入时：显式把 file_type 设为 'photo'；created_at 用 to_timestamp()
-    #    注意：这里 11 列对应 10 个参数 + 1 个常量 'photo'
-    INSERT_SQL = """
+    UPSERT_SQL = """
     INSERT INTO news_content
-        (id, title, text, file_id, file_type, button_str, bot_name,
-         created_at, business_type, content_id, thumb_file_unique_id)
+        (business_type, content_id, title, text, file_type,
+         button_str, bot_name, created_at, thumb_file_unique_id)
     VALUES
-        ($1, $2, $3, $4, 'photo', $5, $6, to_timestamp($7), $8, $9, $10)
-    ON CONFLICT (id) DO UPDATE SET
-        title = EXCLUDED.title,
-        text  = EXCLUDED.text,
-        -- file_id 不更新
-        button_str = EXCLUDED.button_str,
-        created_at = EXCLUDED.created_at,
-        business_type = EXCLUDED.business_type,
-        content_id = EXCLUDED.content_id,
-        thumb_file_unique_id = EXCLUDED.thumb_file_unique_id;
+        ($1, $2, $3, $4, $5,
+         $6, $7, $8, $9)
+    ON CONFLICT (business_type, content_id) DO UPDATE SET
+        title                 = EXCLUDED.title,
+        text                  = EXCLUDED.text,
+        -- 不触碰 file_id
+        file_type             = COALESCE(EXCLUDED.file_type, news_content.file_type),
+        button_str            = EXCLUDED.button_str,
+        bot_name              = EXCLUDED.bot_name,
+        created_at            = COALESCE(EXCLUDED.created_at, news_content.created_at),
+        thumb_file_unique_id  = EXCLUDED.thumb_file_unique_id;
     """
-
     async with pg.transaction():
         for r in rows:
-            (rid, title, text, file_id, button_str, bot_name,
-             created_at, business_type, content_id, thumb_uid) = r
+            (
+                rid,                # MySQL id（忽略，不使用）
+                title,
+                text,
+                file_id_mysql,      # 来自 MySQL 的 file_id（忽略，不写入）
+                file_type,
+                button_str,
+                bot_name,
+                created_at,
+                business_type,
+                content_id,
+                thumb_uid
+            ) = r
 
-            # 尝试把 created_at 统一转成“秒级整数”
-            # （如果已经是 datetime/日期字符串，你也可以在这里转成秒）
-            try:
-                created_at_sec = int(created_at)
-            except Exception:
-                # 兜底：无法直接转 int 时，改成当前时间
-                # 你也可以在此扩展 datetime -> int 的转换
-                created_at_sec = int(time.time())
+            created_at_dt = parse_created_at(created_at)
 
-            # 1) 先按 thumb 更新（不改 file_id）
-            updated = await pg.fetchval(
-                UPDATE_BY_THUMB,
-                title,            # $1
-                text,             # $2
-                button_str,       # $3
-                bot_name,         # $4
-                created_at_sec,   # $5
-                business_type,    # $6
-                content_id,       # $7
-                thumb_uid         # $8
-            )
-            if updated:
-                continue
-
-            # 2) 再按 (bot_name, content_id) 更新（不改 file_id）
-            updated2 = await pg.fetchval(
-                UPDATE_BY_BOT_CONTENTID,
-                title,            # $1
-                text,             # $2
-                button_str,       # $3
-                bot_name,         # $4
-                created_at_sec,   # $5
-                business_type,    # $6
-                content_id,       # $7
-                thumb_uid         # $8
-            )
-            if updated2:
-                continue
-
-            # 3) 插入（file_type = 'photo'；created_at = to_timestamp($7)）
+            # 注意：参数不包含 file_id；id 由 PG 自增
             await pg.execute(
-                INSERT_SQL,
-                rid,             # $1
-                title,           # $2
-                text,            # $3
-                file_id,         # $4
-                button_str,      # $5
-                bot_name,        # $6
-                created_at_sec,  # $7  -> to_timestamp()
-                business_type,   # $8
-                content_id,      # $9
-                thumb_uid        # $10
+                UPSERT_SQL,
+                business_type,                                  # $1
+                int(content_id) if content_id is not None else None,  # $2
+                title,                                          # $3
+                text,                                           # $4
+                file_type or 'photo',                           # $5
+                button_str,                                     # $6
+                bot_name or 'salai',                            # $7
+                created_at_dt,                                  # $8
+                thumb_uid                                       # $9
             )
-
 
 
 async def delete_mysql_news_rows(conn: aiomysql.Connection, ids: List[int]) -> int:
@@ -439,6 +387,9 @@ async def migrate_news_content(mysql_pool, pg_pool):
 
     print(f"[DONE:news] UPSERT {migrated_total}；MySQL 删除 {deleted_total}")
 
+
+
+
 # ------------------ 主入口 ------------------
 async def main():
     # 连接池（全局共享）
@@ -452,7 +403,7 @@ async def main():
 
     try:
         # 顺序执行：先同步会员有效期，再迁移 news_content
-        await sync_membership_to_news_user(mysql_pool, pg_pool)
+        # await sync_membership_to_news_user(mysql_pool, pg_pool)
         await migrate_news_content(mysql_pool, pg_pool)
     finally:
         mysql_pool.close()

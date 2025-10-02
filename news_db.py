@@ -111,7 +111,7 @@ class NewsDatabase:
             sql = """
             UPDATE news_content
             SET file_id = $1
-            WHERE bot_name = $2 AND thumb_file_unique_id ILIKE $3;
+            WHERE bot_name = $2 AND thumb_file_unique_id LIKE $3;
             """
             # print("EXEC:", sql, "PARAMS:", (file_id, bot_username, thumb_file_unique_id))
 
@@ -183,9 +183,9 @@ class NewsDatabase:
                 SELECT id, thumb_file_unique_id
                 FROM news_content
                 WHERE file_id IS NULL
-                  AND thumb_file_unique_id IS NOT NULL
-                ORDER BY id
-                LIMIT $1
+                AND thumb_file_unique_id IS NOT NULL
+                ORDER BY RANDOM() 
+                LIMIT $1;
                 """,
                 limit
             )
