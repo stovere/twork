@@ -403,7 +403,7 @@ async def main():
 
     try:
         # 顺序执行：先同步会员有效期，再迁移 news_content
-        # await sync_membership_to_news_user(mysql_pool, pg_pool)
+        await sync_membership_to_news_user(mysql_pool, pg_pool)
         await migrate_news_content(mysql_pool, pg_pool)
     finally:
         mysql_pool.close()
