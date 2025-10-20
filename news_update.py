@@ -267,7 +267,7 @@ async def fetch_mysql_batch_news(conn: aiomysql.Connection, last_id: int, limit:
         id, title, text, file_id, file_type, button_str, bot_name,
         created_at, business_type, content_id, thumb_file_unique_id
     FROM news_content
-    WHERE id > %s
+    WHERE id > %s and thumb_file_unique_id is not null
     ORDER BY id
     LIMIT %s;
     """

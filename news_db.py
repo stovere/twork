@@ -270,7 +270,7 @@ class NewsDatabase:
                 JOIN news_user u   ON q.user_ref_id = u.id
                 JOIN news_content c ON q.news_id = c.id
                 WHERE q.state = 'pending'
-                ORDER BY q.created_at
+                ORDER BY q.created_at DESC 
                 LIMIT $1
                 """,
                 limit,

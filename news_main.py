@@ -25,7 +25,7 @@ db = NewsDatabase(DB_DSN)
 
 lz_var_start_time = time.time()
 lz_var_cold_start_flag = True
-x_man_bot_id: int = 7793315433
+x_man_bot_id: int = 7539299814
 crypto = AESCrypto(AES_KEY)
 
 # 等待老板(12343)回传媒体的挂起请求：token -> {"future": Future, "news_id": int, "file_unique_id": str}
@@ -294,7 +294,7 @@ async def periodic_sender(db: NewsDatabase):
 
 
         # === 间隔 60 秒再跑下一轮 ===
-        await asyncio.sleep(60)
+        await asyncio.sleep(30)
 
 
 
