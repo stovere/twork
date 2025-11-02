@@ -98,6 +98,7 @@ class SoraContentPg(PgBaseModel):
     source_channel_message_id = BigIntegerField(null=True)
     stage = CharField(max_length=20, null=True)  # 可加 enum CHECK 限制
     plan_update_timestamp = BigIntegerField(null=True)
+    valid_state = SmallIntegerField(default=1, null=False)  # 0=invalid, 1=valid, 2=pending, 3=broken, 4=missing
 
     class Meta:
         table_name = 'sora_content'

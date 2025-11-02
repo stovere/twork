@@ -114,6 +114,7 @@ class SoraContent(BaseModel):
     thumb_hash = CharField(max_length=64, null=True)
     owner_user_id = BigIntegerField(null=True)
     source_channel_message_id = BigIntegerField(null=True)
+    valid_state = IntegerField(default=1)  # 0=invalid, 1=valid, 2=pending, 3=broken, 4=missing
     stage = CharField(max_length=20, null=True)  # 可选改用 ENUM 实现
     plan_update_timestamp = BigIntegerField(null=True)
     

@@ -462,6 +462,7 @@ def process_sora_update():
             'duration': row.duration,
             'tag': row.tag,
             'file_type': row.file_type[0] if row.file_type else None,
+            'valid_state': row.valid_state,
             'plan_update_timestamp': row.plan_update_timestamp,
             'stage': row.stage
         }

