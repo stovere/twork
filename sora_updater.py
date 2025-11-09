@@ -15,6 +15,7 @@ from model.mysql_models import (
 )
 from database import ensure_connection
 from model.scrap import Scrap
+from utils.string_utils import LZString
 
 SYNC_TO_POSTGRES = os.getenv('SYNC_TO_POSTGRES', 'false').lower() == 'true'
 BATCH_LIMIT = None
@@ -189,7 +190,8 @@ def process_documents():
             continue
 
         # 文本清洗与分词
-        content = clean_text(f"{doc.file_name or ''}\n{doc.caption or ''}")
+        file_name = LZString.extract_meaningful_name(doc.file_name or '') or ''
+        content = LZString.clean_text(f"{file_name}\n{doc.caption or ''}")
         content_seg = segment_text(content)
 
         # 标签分词追加
@@ -248,7 +250,8 @@ def process_videos():
             continue
 
         tag_seg = ''
-        content = clean_text(f"{doc.file_name or ''}\n{doc.caption or ''}")
+        file_name = LZString.extract_meaningful_name(doc.file_name or '') or ''
+        content = LZString.clean_text(f"{file_name or ''}\n{doc.caption or ''}")
         content_seg = segment_text(content)
         tag_cn_list = fetch_tag_cn_for_file(doc.file_unique_id)
         if tag_cn_list:
@@ -373,7 +376,7 @@ def process_scrap():
             continue
 
         content = clean_bj_text(scrap.content or '')
-        content = clean_text(content)
+        content = LZString.clean_text(content)
         content_seg = segment_text(content)
 
         tag_seg = ''
@@ -584,10 +587,10 @@ def sync_pending_product_to_postgres():
         # 去除不必要字段
         for ignored in ('stage'):
             model_data.pop(ignored, None)
-        model_data["id"] = row.id  # 强制使用相同主键
+        model_data["content_id"] = row.content_id  # 强制使用相同主键
 
         try:
-            existing = ProductPg.get(ProductPg.id == row.id)
+            existing = ProductPg.get(ProductPg.content_id == row.content_id)
             for k, v in model_data.items():
                 setattr(existing, k, v)
             existing.save()
