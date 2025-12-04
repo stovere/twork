@@ -5,6 +5,7 @@ import os
 import re
 import json
 import jieba
+from opencc import OpenCC
 from dotenv import load_dotenv
 
 if not os.getenv('GITHUB_ACTIONS'):
@@ -201,7 +202,13 @@ def process_documents():
             tag_seg = ' '.join(f'#{tag}' for tag in tag_cn_list)
             content_seg += " " + " ".join(tag_cn_list)
 
+        tw2s = OpenCC('tw2s')
+        content_seg = tw2s.convert(content_seg)
+
         # print(f"Processing {doc.file_unique_id}",flush=True)
+
+        tw2s = OpenCC('tw2s')
+        content_seg = tw2s.convert(content_seg)
 
         # 统一记录数据
         record_data = {
@@ -259,6 +266,9 @@ def process_videos():
             content_seg += " " + " ".join(tag_cn_list)
 
         # print(f"Processing {doc.file_unique_id}",flush=True)
+
+        tw2s = OpenCC('tw2s')
+        content_seg = tw2s.convert(content_seg)
 
         record_data = {
             'source_id': doc.file_unique_id,
@@ -386,6 +396,9 @@ def process_scrap():
             content_seg += " " + " ".join(tag_cn_list)
 
         # print(f"Processing {scrap.id}: {content_seg}")
+
+        tw2s = OpenCC('tw2s')
+        content_seg = tw2s.convert(content_seg)
 
         record_data = {
             'source_id': scrap.id,
