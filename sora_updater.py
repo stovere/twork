@@ -190,6 +190,7 @@ def process_documents():
             doc.save()
             continue
 
+        jieba.load_userdict("jieba_userdict.txt")
         # 文本清洗与分词
         file_name = LZString.extract_meaningful_name(doc.file_name or '') or ''
         content = LZString.clean_text(f"{file_name}\n{doc.caption or ''}")
@@ -202,8 +203,6 @@ def process_documents():
             tag_seg = ' '.join(f'#{tag}' for tag in tag_cn_list)
             content_seg += " " + " ".join(tag_cn_list)
 
-        tw2s = OpenCC('tw2s')
-        content_seg = tw2s.convert(content_seg)
 
         # print(f"Processing {doc.file_unique_id}",flush=True)
 
