@@ -2,9 +2,8 @@ import re
 import json
 from typing import List
 import os
-import uuid
-import re
 from collections.abc import Iterable
+from typing import Optional,Tuple
 
 class LZString:
     _ZERO_WIDTH = re.compile(r'[\u200B-\u200F\uFEFF]')
@@ -13,12 +12,12 @@ class LZString:
     _FLAT_JSON = re.compile(r'\{[^{}]{1,2000}\}')  # 防止极长文本卡顿
     _BLANK_LINE = re.compile(r'^[ \t]*$', re.MULTILINE)
 
-    _AD_CUT_MARKS: tuple[str, ...] = (
+    _AD_CUT_MARKS: Tuple[str, ...] = (
         "- Advertisement - No Guarantee",
         "- 广告 - 无担保",
     )
 
-    _NOISE_PHRASES: tuple[str, ...] = (
+    _NOISE_PHRASES: Tuple[str, ...] = (
         "求打赏", "求赏", "可通过以下方式获取或分享文件",
         "✅共找到 1 个媒体",
         "私聊模式：将含有File ID的文本直接发送给机器人 @datapanbot 即可进行文件解析",
@@ -32,7 +31,7 @@ class LZString:
         "Bad Request: chat_id is empty",
     )
 
-    _TEMPLATE_PATTERNS: tuple[re.Pattern, ...] = tuple(
+    _TEMPLATE_PATTERNS = tuple(
         re.compile(p, re.IGNORECASE) for p in (
             r'LINK\s*\n[^\n]+#C\d+\s*\nOriginal:[^\n]*\n?',
             r'LINK\s*\n[^\n]+#C\d+\s*\nForwarded from:[^\n]*\n?',
@@ -40,7 +39,6 @@ class LZString:
             r'Original caption:[^\n]*\n?',
         )
     )
-
 
     @staticmethod
     def _to_text(x) -> str:
@@ -200,7 +198,7 @@ class LZString:
 
 
     @staticmethod
-    def extract_meaningful_name(filename: str) -> str | None:
+    def extract_meaningful_name(filename: str) -> Optional[str]:
         """
         从文件名中提取有意义的部分。
         若无意义则返回 None。
@@ -322,6 +320,7 @@ class LZString:
             return cleaned, uniq_groups
         return cleaned
 
+    @staticmethod
     def shorten_text(text: str, max_length: int = 30) -> str:
         if not text:
             return ""

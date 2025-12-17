@@ -122,12 +122,14 @@ def segment_text(text):
     return " ".join(jieba.cut(text))
 
 def fetch_tag_cn_for_file(file_unique_id):
-    return [
-        t.tag_cn for t in Tag.select()
+    query = (
+        Tag
+        .select()
         .join(FileTag, on=(FileTag.tag == Tag.tag))
         .where(FileTag.file_unique_id == file_unique_id)
-        if t.tag_cn
-    ]
+    )
+    return [t.tag_cn for t in query if t.tag_cn]
+
 
 def sync_to_postgres(record):
     if not SYNC_TO_POSTGRES:
@@ -597,8 +599,9 @@ def sync_pending_product_to_postgres():
 
         model_data = model_to_dict(row, recurse=False)
         # 去除不必要字段
-        for ignored in ('stage'):
+        for ignored in ('stage',):
             model_data.pop(ignored, None)
+
         model_data["content_id"] = row.content_id  # 强制使用相同主键
 
         try:
