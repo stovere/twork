@@ -462,11 +462,11 @@ def process_sora_update():
         DB_PG.connect()
 
     sora_content_rows = SoraContent.select().where(SoraContent.stage=="pending").limit(BATCH_LIMIT)
-    # print(f"📦 正在处理 {len(sora_content_rows)} 笔 sora 数据...\n")
+    print(f"📦 正在处理 {len(sora_content_rows)} 笔 sora 数据...\n",flush=True)
 
     for row in sora_content_rows:
         source_id = row.source_id
-        print(f"🔍 处理 source_id: {source_id}")
+        print(f"🔍 处理 source_id: {source_id}",flush=True)
 
         content = {
             'source_id': source_id,
@@ -487,12 +487,12 @@ def process_sora_update():
         # 插入或更新 SoraContent
         sora_content, created = SoraContent.get_or_create(source_id=source_id, defaults=content)
         if created:
-            print("✅ 新增 MySQL sora_content")
+            print("✅ 新增 MySQL sora_content",flush=True)
         else:
             for k, v in content.items():
                 setattr(sora_content, k, v)
             sora_content.save()
-            # print("🔄 更新 MySQL sora_content")
+            print("🔄 更新 MySQL sora_content",flush=True)
 
         # 建立 SoraMedia（两个机器人来源）
         media_data = [
@@ -518,10 +518,10 @@ def process_sora_update():
                 existing.file_id = media["file_id"]
                 existing.thumb_file_id = media["thumb_file_id"]
                 existing.save()
-                print(f"  🔄 更新 MySQL sora_media [{media['source_bot_name']}]")
+                print(f"  🔄 更新 MySQL sora_media [{media['source_bot_name']}]",flush=True)
             else:
                 SoraMedia.create(content_id=sora_content.id, **media)
-                print(f"  ✅ 新增 MySQL sora_media [{media['source_bot_name']}]")
+                print(f"  ✅ 新增 MySQL sora_media [{media['source_bot_name']}]",flush=True)
 
 
         # 更新原始表状态
@@ -532,7 +532,7 @@ def process_sora_update():
         if SYNC_TO_POSTGRES:
             sync_to_postgres(sora_content)
             sync_media_to_postgres(sora_content.id, media_data)
-            print("🚀 同步到 PostgreSQL 完成")
+            print("🚀 同步到 PostgreSQL 完成",flush=True)
 
     DB_MYSQL.close()
     if SYNC_TO_POSTGRES:
@@ -553,7 +553,7 @@ def sync_pending_sora_to_postgres():
     rows = SoraContent.select().where(SoraContent.stage == "pending").limit(BATCH_LIMIT)
 
     for row in rows:
-        # print(f"🔄 同步中：source_id = {row.source_id}")
+        print(f"🔄 同步中：source_id = {row.source_id}",flush=True)
 
         model_data = model_to_dict(row, recurse=False)
         # 去除不必要字段
@@ -566,10 +566,10 @@ def sync_pending_sora_to_postgres():
             for k, v in model_data.items():
                 setattr(existing, k, v)
             existing.save()
-            # print(f"✅ 已更新 PostgreSQL sora_content.id = {row.id}")
+            # print(f"✅ 已更新 PostgreSQL sora_content.id = {row.id}",flush=True)
         except SoraContentPg.DoesNotExist:
             SoraContentPg.create(**model_data)
-            # print(f"✅ 已新增 PostgreSQL sora_content.id = {row.id}")
+            # print(f"✅ 已新增 PostgreSQL sora_content.id = {row.id}",flush=True)
 
         # ✅ 回写 MySQL：stage = "updated"
         row.stage = "updated"
@@ -627,6 +627,6 @@ def sync_pending_product_to_postgres():
 if __name__ == "__main__":
     process_documents()
     process_videos()
-    process_scrap()
+    # process_scrap()
     sync_pending_sora_to_postgres()  # ✅ 新增的同步逻辑
     sync_pending_product_to_postgres()
