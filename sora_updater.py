@@ -553,7 +553,7 @@ def sync_pending_sora_to_postgres():
     rows = SoraContent.select().where(SoraContent.stage == "pending").limit(BATCH_LIMIT)
 
     for row in rows:
-        print(f"🔄 同步中：source_id = {row.source_id}",flush=True)
+        # print(f"🔄 同步中：source_id = {row.source_id}",flush=True)
 
         model_data = model_to_dict(row, recurse=False)
         # 去除不必要字段
@@ -566,10 +566,10 @@ def sync_pending_sora_to_postgres():
             for k, v in model_data.items():
                 setattr(existing, k, v)
             existing.save()
-            # print(f"✅ 已更新 PostgreSQL sora_content.id = {row.id}",flush=True)
+            print(f"✅ 已更新 PostgreSQL sora_content.id = {row.id}",flush=True)
         except SoraContentPg.DoesNotExist:
             SoraContentPg.create(**model_data)
-            # print(f"✅ 已新增 PostgreSQL sora_content.id = {row.id}",flush=True)
+            print(f"✅ 已新增 PostgreSQL sora_content.id = {row.id}",flush=True)
 
         # ✅ 回写 MySQL：stage = "updated"
         row.stage = "updated"
