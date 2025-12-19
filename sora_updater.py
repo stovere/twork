@@ -266,7 +266,7 @@ def process_videos():
             tag_seg = ' '.join(f'#{tag}' for tag in tag_cn_list)
             content_seg += " " + " ".join(tag_cn_list)
 
-        # print(f"Processing {doc.file_unique_id}",flush=True)
+        print(f"Processing {doc.file_unique_id}",flush=True)
 
         tw2s = OpenCC('tw2s')
         content_seg = tw2s.convert(content_seg)
