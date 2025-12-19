@@ -181,9 +181,7 @@ def sync_media_to_postgres(content_id, media_rows):
 def process_documents():
     # DB_MYSQL.connect()
     ensure_connection()  # ✅ 推荐写法
-    if SYNC_TO_POSTGRES:
 
-        DB_PG.connect()
 
     print("\n🚀 开始同步 stage != 'updated' 的 document 到 PostgreSQL...",flush=True)
     for doc in Document.select().where((Document.kc_status.is_null(True)) | (Document.kc_status != 'updated')).limit(BATCH_LIMIT):
@@ -240,15 +238,13 @@ def process_documents():
             sync_to_postgres(kw)
 
     DB_MYSQL.close()
-    if SYNC_TO_POSTGRES:
-        DB_PG.close()
+
 
 
 def process_videos():
     ensure_connection()  # ✅ 推荐写法
     # DB_MYSQL.connect()
-    if SYNC_TO_POSTGRES:
-        DB_PG.connect()
+
 
     print("\n🚀 开始同步 stage != 'updated' 的 video 到 PostgreSQL...")
     for doc in Video.select().where((Video.kc_status.is_null(True)) | (Video.kc_status != 'updated')).limit(BATCH_LIMIT):
@@ -300,8 +296,7 @@ def process_videos():
             sync_to_postgres(kw)
 
     DB_MYSQL.close()
-    if SYNC_TO_POSTGRES:
-        DB_PG.close()
+
 
 
 def parse_bj_tag_for_file(tag_str):
@@ -376,8 +371,7 @@ def parse_bj_tag_for_file(tag_str):
 def process_scrap():
     # DB_MYSQL.connect()
     ensure_connection()  # ✅ 推荐写法
-    if SYNC_TO_POSTGRES:
-        DB_PG.connect()
+
 
     print("\n🚀 开始同步 stage != 'updated' 的 scrap 到 PostgreSQL...")
     for scrap in Scrap.select().where(((Scrap.kc_status.is_null(True)) | (Scrap.kc_status != 'updated')) & (Scrap.thumb_file_unique_id != '')).limit(BATCH_LIMIT):
@@ -451,15 +445,13 @@ def process_scrap():
             print("🚀 同步到 PostgreSQL 完成")
 
     DB_MYSQL.close()
-    if SYNC_TO_POSTGRES:
-        DB_PG.close()
+
 
 def process_sora_update():
     import time
     ensure_connection()  # ✅ 推荐写法
     # DB_MYSQL.connect()
-    if SYNC_TO_POSTGRES:
-        DB_PG.connect()
+
 
     sora_content_rows = SoraContent.select().where(SoraContent.stage=="pending").limit(BATCH_LIMIT)
     print(f"📦 正在处理 {len(sora_content_rows)} 笔 sora 数据...\n",flush=True)
@@ -535,10 +527,51 @@ def process_sora_update():
             print("🚀 同步到 PostgreSQL 完成",flush=True)
 
     DB_MYSQL.close()
-    if SYNC_TO_POSTGRES:
-        DB_PG.close()
+
 
 def sync_pending_sora_to_postgres():
+    if not SYNC_TO_POSTGRES:
+        print("🔒 SYNC_TO_POSTGRES 为 False，跳过 PostgreSQL 同步", flush=True)
+        return
+
+    print("\n🚀 开始同步 stage = 'pending' 的 sora_content 到 PostgreSQL...", flush=True)
+    from playhouse.shortcuts import model_to_dict
+
+    ensure_connection()  # ✅ MySQL 连接/保活
+
+    # ✅ 关键：复用已开启连接；如果外部已 connect，这里不会报错
+    DB_PG.connect(reuse_if_open=True)
+
+    rows = SoraContent.select().where(SoraContent.stage == "pending").limit(BATCH_LIMIT)
+
+    for row in rows:
+        model_data = model_to_dict(row, recurse=False)
+
+        for ignored in ('content_seg_tsv', 'created_at', 'updated_at'):
+            model_data.pop(ignored, None)
+
+        model_data["id"] = row.id  # MySQL/PG 主键一致
+
+        with DB_PG.atomic():
+            try:
+                existing = SoraContentPg.get(SoraContentPg.id == row.id)
+                for k, v in model_data.items():
+                    setattr(existing, k, v)
+                existing.save()
+                print(f"✅ 已更新 PostgreSQL sora_content.id = {row.id}", flush=True)
+            except SoraContentPg.DoesNotExist:
+                SoraContentPg.create(**model_data)
+                print(f"✅ 已新增 PostgreSQL sora_content.id = {row.id}", flush=True)
+
+        # 回写 MySQL：stage = updated
+        row.stage = "updated"
+        row.save()
+
+    # ❗不要在这里 close DB_PG（交给 __main__ finally 统一关）
+    DB_MYSQL.close()
+
+
+def sync_pending_sora_to_postgres2():
     if not SYNC_TO_POSTGRES:
         print("🔒 SYNC_TO_POSTGRES 为 False，跳过 PostgreSQL 同步",flush=True)
         return
@@ -580,7 +613,8 @@ def sync_pending_sora_to_postgres():
     DB_MYSQL.close()
     DB_PG.close()
 
-def sync_pending_product_to_postgres():
+def sync_pending_product_to_postgres_old():
+    from peewee import IntegrityError
     if not SYNC_TO_POSTGRES:
         print("🔒 SYNC_TO_POSTGRES 为 False，跳过 PostgreSQL 同步",flush=True)
         return
@@ -604,15 +638,38 @@ def sync_pending_product_to_postgres():
 
         model_data["content_id"] = row.content_id  # 强制使用相同主键
 
+        from peewee import IntegrityError
+
         try:
             existing = ProductPg.get(ProductPg.content_id == row.content_id)
             for k, v in model_data.items():
                 setattr(existing, k, v)
             existing.save()
-            # print(f"✅ 已更新 PostgreSQL product.content_id = {row.content_id}")
+
         except ProductPg.DoesNotExist:
-            ProductPg.create(**model_data)
-            # print(f"✅ 已新增 PostgreSQL product.content_id = {row.content_id}")
+            try:
+                ProductPg.create(**model_data)
+
+            except IntegrityError as e:
+                msg = str(e)
+                # 只处理你指定的：product_pkey 主键冲突
+                if 'duplicate key value violates unique constraint "product_pkey"' in msg:
+                    conflict_id = model_data.get("id")
+                    if conflict_id is None:
+                        raise  # 没有 id 无法执行“删再插”，交回上层处理
+
+                    print(f"⚠️ product_pkey 冲突：id={conflict_id}，强制删除 PostgreSQL 旧记录后重建", flush=True)
+
+                    # 强制删除冲突主键行
+                    ProductPg.delete().where(ProductPg.id == conflict_id).execute()
+
+                    # 再插入一次
+                    ProductPg.create(**model_data)
+
+                else:
+                    # 不是 product_pkey 的冲突，不做破坏性操作
+                    raise
+
 
         # ✅ 回写 MySQL：stage = "updated"
         row.stage = "updated"
@@ -624,9 +681,197 @@ def sync_pending_product_to_postgres():
     DB_PG.close()
 
 
+from peewee import IntegrityError
+
+def sync_pending_product_to_postgres():
+    if not SYNC_TO_POSTGRES:
+        print("🔒 SYNC_TO_POSTGRES 为 False，跳过 PostgreSQL 同步", flush=True)
+        return
+
+    print("\n🚀 开始同步 stage = 'pending' 的 product 到 PostgreSQL...", flush=True)
+    from playhouse.shortcuts import model_to_dict
+
+    ensure_connection()
+    DB_PG.connect(reuse_if_open=True)
+
+    rows = Product.select().where(Product.stage == "pending").limit(BATCH_LIMIT)
+
+    def _is_unique_violation(e: Exception, constraint: str) -> bool:
+        s = str(e)
+        return ('duplicate key value violates unique constraint' in s) and (f'"{constraint}"' in s)
+
+    def _upsert_by_id_once(model_data: dict, target_id: int):
+        # 关键：让 IntegrityError 直接抛出 atomic()，触发自动 rollback
+        with DB_PG.atomic():
+            existing = ProductPg.get_or_none(ProductPg.id == target_id)
+            if existing is None:
+                ProductPg.create(**model_data)
+            else:
+                for k, v in model_data.items():
+                    setattr(existing, k, v)
+                existing.save()
+
+    def _delete_conflict_content_id(target_content_id: int, target_id: int):
+        # 独立事务做清理
+        with DB_PG.atomic():
+            (ProductPg
+             .delete()
+             .where((ProductPg.content_id == target_content_id) & (ProductPg.id != target_id))
+             .execute())
+
+    def _delete_conflict_id(target_id: int):
+        with DB_PG.atomic():
+            ProductPg.delete().where(ProductPg.id == target_id).execute()
+
+    for row in rows:
+        model_data = model_to_dict(row, recurse=False)
+        model_data.pop("stage", None)
+
+        target_id = model_data.get("id")
+        target_content_id = model_data.get("content_id")
+
+        if target_id is None:
+            raise ValueError("Product row has no id; cannot sync by id")
+
+        try:
+            # 1) id 优先：先 upsert
+            _upsert_by_id_once(model_data, target_id)
+
+        except IntegrityError as e:
+            # 2) content_id 冲突：删掉占用该 content_id 的其他行，再重试
+            if _is_unique_violation(e, "uq_product_content_id"):
+                print(
+                    f"⚠️ uq_product_content_id 冲突：content_id={target_content_id}，删除重复 content_id 后重试",
+                    flush=True
+                )
+                _delete_conflict_content_id(target_content_id, target_id)
+                _upsert_by_id_once(model_data, target_id)
+
+            # 3) 主键冲突：删同 id 的旧行，再重试；若仍撞 content_id，再删 content_id 占用者再试一次
+            elif _is_unique_violation(e, "product_pkey"):
+                print(f"⚠️ product_pkey 冲突：id={target_id}，删除同 id 后重试", flush=True)
+                _delete_conflict_id(target_id)
+
+                try:
+                    _upsert_by_id_once(model_data, target_id)
+                except IntegrityError as e2:
+                    if _is_unique_violation(e2, "uq_product_content_id"):
+                        print(
+                            f"⚠️ uq_product_content_id 冲突（在删除 id 后仍发生）：content_id={target_content_id}，删除重复 content_id 后再重试",
+                            flush=True
+                        )
+                        _delete_conflict_content_id(target_content_id, target_id)
+                        _upsert_by_id_once(model_data, target_id)
+                    else:
+                        raise
+            else:
+                raise
+
+        # ✅ 回写 MySQL：stage = "updated"
+        row.stage = "updated"
+        row.save()
+
+        print(f"✅ 已同步 PostgreSQL product.id={target_id}, content_id={target_content_id}", flush=True)
+
+    # 不要在这里 close PG（建议统一在 __main__ finally 关）
+    # DB_MYSQL.close() / DB_PG.close() 交给主流程统一管理
+
+
+
+def sync_pending_product_to_postgres2():
+    from peewee import IntegrityError
+
+    if not SYNC_TO_POSTGRES:
+        print("🔒 SYNC_TO_POSTGRES 为 False，跳过 PostgreSQL 同步", flush=True)
+        return
+
+    print("\n🚀 开始同步 stage = 'pending' 的 product 到 PostgreSQL...", flush=True)
+    from playhouse.shortcuts import model_to_dict
+
+    ensure_connection()  # ✅ 推荐写法
+    DB_PG.connect()
+
+    rows = Product.select().where(Product.stage == "pending").limit(BATCH_LIMIT)
+
+    def _is_unique_violation(e: Exception, constraint: str) -> bool:
+        s = str(e)
+        return ('duplicate key value violates unique constraint' in s) and (f'"{constraint}"' in s)
+
+    for row in rows:
+        model_data = model_to_dict(row, recurse=False)
+        model_data.pop("stage", None)
+
+        target_id = model_data.get("id")
+        target_content_id = model_data.get("content_id")
+
+        if target_id is None:
+            raise ValueError("Product row has no id; cannot sync by id")
+
+        with DB_PG.atomic():
+            # 1) 以 id 为主：先找同 id 的 existing
+            existing = ProductPg.get_or_none(ProductPg.id == target_id)
+
+            try:
+                if existing is None:
+                    # INSERT
+                    ProductPg.create(**model_data)
+                else:
+                    # UPDATE（按 id 更新这一条）
+                    for k, v in model_data.items():
+                        setattr(existing, k, v)
+                    existing.save()
+
+            except IntegrityError as e:
+                # 2) 若 content_id 唯一冲突：删除“占用该 content_id 的其他行”，再重试一次
+                if _is_unique_violation(e, "uq_product_content_id"):
+                    print(
+                        f"⚠️ uq_product_content_id 冲突：content_id={target_content_id}，删除重复 content_id 后重试",
+                        flush=True
+                    )
+
+                    # 只删除“同 content_id 且 id != 当前 id”的行，避免误删当前目标
+                    (ProductPg
+                     .delete()
+                     .where((ProductPg.content_id == target_content_id) & (ProductPg.id != target_id))
+                     .execute())
+
+                    # 重试（同一事务内）
+                    existing2 = ProductPg.get_or_none(ProductPg.id == target_id)
+                    if existing2 is None:
+                        ProductPg.create(**model_data)
+                    else:
+                        for k, v in model_data.items():
+                            setattr(existing2, k, v)
+                        existing2.save()
+
+                # 3) 若主键冲突（极少数：并发/历史异常）：删同 id 再插一次
+                elif _is_unique_violation(e, "product_pkey"):
+                    print(
+                        f"⚠️ product_pkey 冲突：id={target_id}，删除同 id 后重试",
+                        flush=True
+                    )
+                    ProductPg.delete().where(ProductPg.id == target_id).execute()
+
+                    # 这里再次插入仍可能因 content_id 冲突失败，让上层看到_
+
+
 if __name__ == "__main__":
-    process_documents()
-    process_videos()
-    # process_scrap()
-    sync_pending_sora_to_postgres()  # ✅ 新增的同步逻辑
-    sync_pending_product_to_postgres()
+    ensure_connection()
+
+    if SYNC_TO_POSTGRES:
+        # 只连一次
+        DB_PG.connect(reuse_if_open=True)
+
+    try:
+        process_documents()            # 里面不要再 connect/close PG
+        process_videos()               # 同上
+        # process_scrap()
+        sync_pending_sora_to_postgres()  # 同上
+        sync_pending_product_to_postgres()
+    finally:
+        # 统一关闭
+        if not DB_MYSQL.is_closed():
+            DB_MYSQL.close()
+        if SYNC_TO_POSTGRES and (not DB_PG.is_closed()):
+            DB_PG.close()
+
