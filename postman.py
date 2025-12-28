@@ -114,9 +114,9 @@ config['session_name'] = str(config['api_id']) + 'session_name'  # 确保 sessio
 '''
 协义号
 '''
-SESSION_STRING=None
-config['session_name'] = "916303192358"
-config['phone_number'] = "+916303192358"
+# SESSION_STRING=None
+# config['session_name'] = "916303192358"
+# config['phone_number'] = "+916303192358"
 
 
 # print(f"⚠️ 配置參數：{config}")
