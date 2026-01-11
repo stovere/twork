@@ -111,6 +111,14 @@ except Exception as e:
 
 config['session_name'] = str(config['api_id']) + 'session_name'  # 确保 session_name 正确
 
+'''
+协义号
+'''
+# SESSION_STRING=None
+# config['session_name'] = "916303192358"
+# config['phone_number'] = "+916303192358"
+
+
 # print(f"⚠️ 配置參數：{config}")
    
 # 在模块顶部初始化全局缓存

@@ -12,13 +12,14 @@ import pymysql
 # Check if running in a local development environment
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
+    load_dotenv(dotenv_path='.28817994.get_account.env')
     # load_dotenv(dotenv_path='.20100034.sungfong.env')
     # load_dotenv(dotenv_path='.24066130.decode.env')
     # load_dotenv(dotenv_path='.25506053.jjl.env')
     # load_dotenv(dotenv_path='.25254811.bjd.env')
     # load_dotenv(dotenv_path='.25299903.warehouse.env')
     # .20100034.sungfong.env
-    load_dotenv(dotenv_path='.28817994.luzai.env')
+    # load_dotenv(dotenv_path='.28817994.luzai.env')
     # load_dotenv(dotenv_path='.env')
     # load_dotenv(dotenv_path='.24690454.queue.env')
     # 
@@ -84,12 +85,15 @@ session_password = os.getenv('SESSION_PASSWORD')
 
 session_name = str(api_id) + 'session_name'  # Ensure it matches the uploaded session file name
 
+phone_number = '+13859939226'
+
+session_name = phone_number.replace('+', '').replace(' ', '')  # 确保电话号码格式正确
 session_file = session_name + '.session'
 
 #删除旧的会话文件
 if os.path.exists(session_file):
     try:
-        os.remove(session_file)
+        # os.remove(session_file)
         print(f"已删除旧的会话文件: {session_file}", flush=True)
     except FileNotFoundError:
         print("删除旧的会话文件时未找到文件。", flush=True)
@@ -107,7 +111,7 @@ async def login():
         code = input('Please enter the code you received(a): ')  
        
         # Use phone number and verification code to log in
-        await client.sign_in(phone=phone_number, password=pw2fa, code=code)
+        return await client.sign_in(phone=phone_number, password=pw2fa, code=code)
 
     except SessionPasswordNeededError:
         # Handle two-factor authentication
@@ -158,7 +162,7 @@ async def main():
         client.session.close()  # Ensure the session is closed
         try:
             if os.path.exists(session_file):
-                os.remove(session_file)
+                # os.remove(session_file)
                 print(f"已删除会话文件: {session_file}", flush=True)
             if os.path.exists(session_file + ".enc"):
                 os.remove(session_file + ".enc")
@@ -177,16 +181,20 @@ async def main():
 
     # Check if the user is already authorized
     if not await client.is_user_authorized():
-        print("User is not authorized, starting the login process...", flush=True)
-        await login()
+        print(f"User is not authorized, starting the login process...{phone_number}", flush=True)
+        result = await login()
+        print(f"Login result: {result}", flush=True)
 
         stringsession = StringSession.save(client.session)
         print("\n✅ 以下是你的 StringSession（可写入 .env）\n")
         print("USER_SESSION_STRING=" + stringsession)
 
     else:
-        stringsession = config.get('user_session_string', '')
+    
         print("User is already authorized, no need to log in again", flush=True)
+        stringsession = StringSession.save(client.session)
+        print("\n✅ 以下是你的 StringSession（可写入 .env）\n")
+        print("USER_SESSION_STRING=" + stringsession)
 
 
     try:
@@ -194,7 +202,7 @@ async def main():
         await client(UpdateUsernameRequest(phone_number2))  # 设置空字符串即为移除
         print("用户名已成功变更。")
     except Exception as e:
-        print(f"变更失败：{e}")
+        print(f"用户名变更失败：{e}")
 
     me = await client.get_me()
 
@@ -245,12 +253,12 @@ async def main():
         # 构造一个要导入的联系人
         contact = InputPhoneContact(
             client_id=0, 
-            phone="+18023051359", 
-            first_name="DrXP", 
+            phone="+447447471403", 
+            first_name="Vampire", 
             last_name=""
         )
 
-        TARGET_USER_ID = 7550420493           # 接收者 user_id（整数）
+        TARGET_USER_ID = 8150238704           # 接收者 user_id（整数）
 
         result = await client(ImportContactsRequest([contact]))
         print("导入结果:", result)
