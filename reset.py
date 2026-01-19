@@ -85,7 +85,7 @@ session_password = os.getenv('SESSION_PASSWORD')
 
 session_name = str(api_id) + 'session_name'  # Ensure it matches the uploaded session file name
 
-phone_number = '+13859939226'
+# phone_number = '+13859939226'
 
 session_name = phone_number.replace('+', '').replace(' ', '')  # 确保电话号码格式正确
 session_file = session_name + '.session'
