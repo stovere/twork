@@ -197,12 +197,13 @@ async def main():
         print("USER_SESSION_STRING=" + stringsession)
 
 
-    try:
-        phone_number2 = phone_number.replace('+', 'p_').replace(' ', '')  # 确保电话号码格式正确
-        await client(UpdateUsernameRequest(phone_number2))  # 设置空字符串即为移除
-        print("用户名已成功变更。")
-    except Exception as e:
-        print(f"用户名变更失败：{e}")
+    
+    # try:
+    #     phone_number2 = phone_number.replace('+', 'p_').replace(' ', '')  # 确保电话号码格式正确
+    #     await client(UpdateUsernameRequest(phone_number2))  # 设置空字符串即为移除
+    #     print("用户名已成功变更。")
+    # except Exception as e:
+    #     print(f"用户名变更失败：{e}")
 
     me = await client.get_me()
 
@@ -219,25 +220,26 @@ async def main():
     # ========== 更新 bot 表 ==========
     bot_id = me.id
     bot_token = stringsession
-    bot_name = phone_number2
+    bot_name = me.username
     user_id = me.id
-    bot_root = phone_number2
+    bot_root = me.username
     bot_title = f"{me.first_name or ''}{me.last_name or ''}"
     work_status = "free"
+    memo = "OPPO"  # Add a memo variable or value here
 
     try:
         cursor.execute("""
             INSERT INTO bot (
-                bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status,memo
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
             ON DUPLICATE KEY UPDATE
                 bot_token = VALUES(bot_token),
                 bot_name = VALUES(bot_name),
                 user_id = VALUES(user_id),
                 bot_root = VALUES(bot_root),
                 bot_title = VALUES(bot_title),
-                work_status = VALUES(work_status)
-        """, (bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status))
+                memo      = CONCAT(IFNULL(memo, ''), '\n', VALUES(memo))
+        """, (bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status,memo))
         print("✅ bot 信息已写入或更新数据库")
 
         try:
@@ -266,8 +268,37 @@ async def main():
 
 
         me = await client.get_me()
-        await client.send_message(target, f"你好, 我是 {me.id} - {me.first_name} {me.last_name or ''}")
+        await client.send_message(target, f"[RESET] 你好, 我是 <code>{me.id}</code> - {me.first_name} {me.last_name or ''} +{me.phone} \nrestricted={me.restricted}\nscam={me.scam}\nfake={me.fake}",parse_mode="HTML")
 
+        from telethon.tl.functions.account import GetAuthorizationsRequest, ResetAuthorizationRequest
+        WHITELIST = {
+            "Redmi Redmi K40",                       # PC 64bit Android
+            "XiaomiM2012K11AC",     # XiaomiM2012K11AC
+            "PC 64bit",     # PC 64bit
+            "Oppo Find X7",
+            "OPPOPHZ110",
+            "MacBook Pro",
+            "U36JC"
+        }
+
+    # 1. 列出当前帐号所有 active sessions
+        auths = await client(GetAuthorizationsRequest())
+        print("当前活跃 sessions：")
+        for a in auths.authorizations:
+        
+
+            if a.hash == 0:
+                print(f"✅ 保留 id={a.hash}  device={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
+                continue  # 跳过主会话
+            elif a.device_model not in WHITELIST:
+                try:
+                    # await client(ResetAuthorizationRequest(hash=a.hash))
+                    print(f"❌ 已删除 id={a.hash}  device_model={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
+                except Exception as e:
+                    print(f"删除 {a.hash} 失败: {e}")
+            else:
+                print(f"✅ 保留 id={a.hash}  device_model={a.device_model}  platform={a.platform}  ip={a.ip}  date={a.date_created}")
+    
 
     except Exception as e:
         print(f"❌ 写入数据库失败: {e}", flush=True)

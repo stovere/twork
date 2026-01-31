@@ -662,8 +662,12 @@ async def copy_message(client: TelegramClient, target, msg: Message):
 
 async def main():
     last_message_id = 0
-    print(f"⭐️ 启动 Postman Bot...", flush=True)
+    phone = config['phone_number']
+    print(f"⭐️ 启动 Postman Bot...{phone}", flush=True)
+    return
    
+
+
     await client.start(config['phone_number'])
     await keep_db_alive()
 
