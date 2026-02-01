@@ -269,7 +269,7 @@ async def periodic_sender(db: NewsDatabase):
         try:
             print("🔍 检查需要补档的新闻...", flush=True)
             await db.init()
-            rows = await db.find_missing_media_records(limit=5)  # 需返回: id, business_type, thumb_file_unique_id
+            rows = await db.find_missing_media_records(limit=10)  # 需返回: id, business_type, thumb_file_unique_id
             for row in rows:
                 news_id = row["id"]
                 fuid = row["thumb_file_unique_id"]
@@ -283,7 +283,7 @@ async def periodic_sender(db: NewsDatabase):
                     }
                     print(f"➡️ 请求老板补档 news_id={news_id}, fuid={fuid}", flush=True)
                     await bot.send_message(x_man_bot_id, fuid)
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(1)
                 except Exception as e:
                     print(f"⚠️ 发送请求给 {x_man_bot_id} 失败: {e}", flush=True)
                     # 失败也清掉挂起，避免僵尸条目
@@ -294,7 +294,7 @@ async def periodic_sender(db: NewsDatabase):
 
 
         # === 间隔 60 秒再跑下一轮 ===
-        await asyncio.sleep(30)
+        await asyncio.sleep(15)
 
 
 
