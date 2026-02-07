@@ -67,9 +67,9 @@ class NewsDatabase:
             return await conn.fetchval(
                 """
                 INSERT INTO news_content
-                    (title, text, content_id, file_id, thumb_file_unique_id, file_type, button_str, bot_name, business_type)
+                    (title, text, content_id, file_id, thumb_file_unique_id, file_type, button_str, bot_name, business_type, retry)
                 VALUES
-                    ($1,   $2,   CAST($3 AS BIGINT), $4,   $5,           $6,        $7,         $8,       $9)
+                    ($1,   $2,   CAST($3 AS BIGINT), $4,   $5,           $6,        $7,         $8,       $9,       0)
                 RETURNING id
                 """,
                 title, text, content_id, file_id, thumb_file_unique_id, file_type, button_str, bot_name, business_type,

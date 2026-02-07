@@ -14,10 +14,12 @@ from aiojobs.aiohttp import setup as setup_aiojobs
 from aiojobs.aiohttp import get_scheduler_from_app
 
 from news_db import NewsDatabase
+from sto import keep_db_alive
 from utils.safe_reply import safe_reply
 from news_config import BOT_TOKEN, DB_DSN, AES_KEY, BOT_MODE, WEBHOOK_PATH, WEBHOOK_HOST
 from utils.aes_crypto import AESCrypto
 from utils.base62_converter import Base62Converter
+from vendor import config
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
@@ -30,6 +32,12 @@ crypto = AESCrypto(AES_KEY)
 
 # 等待老板(12343)回传媒体的挂起请求：token -> {"future": Future, "news_id": int, "file_unique_id": str}
 pending_fuid_requests: dict[str, dict] = {}
+
+me = bot.get_me()
+print(f'你的用户名: {me.username}',flush=True)
+print(f'你的ID: {me.id}')
+print(f'你的名字: {me.first_name} {me.last_name or ""}')
+print(f'是否是Bot: {me.bot}',flush=True)
 
 
 def parse_button_str(button_str: str) -> InlineKeyboardMarkup | None:
