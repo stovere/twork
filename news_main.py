@@ -33,11 +33,7 @@ crypto = AESCrypto(AES_KEY)
 # 等待老板(12343)回传媒体的挂起请求：token -> {"future": Future, "news_id": int, "file_unique_id": str}
 pending_fuid_requests: dict[str, dict] = {}
 
-me = bot.get_me()
-print(f'你的用户名: {me.username}',flush=True)
-print(f'你的ID: {me.id}')
-print(f'你的名字: {me.first_name} {me.last_name or ""}')
-print(f'是否是Bot: {me.bot}',flush=True)
+
 
 
 def parse_button_str(button_str: str) -> InlineKeyboardMarkup | None:
@@ -342,6 +338,13 @@ async def keep_alive_ping():
 
 async def main():
     await db.init()
+    global bot
+    me = await bot.get_me()
+    print(f'你的用户名: {me.username}',flush=True)
+    print(f'你的ID: {me.id}')
+    print(f'你的名字: {me.first_name} {me.last_name or ""}')
+    print(f'是否是Bot: {me.bot}',flush=True)
+
     if BOT_MODE == "webhook":
         dp.startup.register(on_startup)
         app = web.Application()
