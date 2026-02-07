@@ -14,7 +14,7 @@ from aiojobs.aiohttp import setup as setup_aiojobs
 from aiojobs.aiohttp import get_scheduler_from_app
 
 from news_db import NewsDatabase
-from sto import keep_db_alive
+
 from utils.safe_reply import safe_reply
 from news_config import BOT_TOKEN, DB_DSN, AES_KEY, BOT_MODE, WEBHOOK_PATH, WEBHOOK_HOST
 from utils.aes_crypto import AESCrypto
