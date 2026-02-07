@@ -281,9 +281,10 @@ async def periodic_sender(db: NewsDatabase):
                         "business_type": bt,
                         "ts": time.time(),
                     }
-                    print(f"➡️ 请求老板补档 news_id={news_id}, fuid={fuid}", flush=True)
+                    print(f"➡️ 请求老板( {x_man_bot_id}) 补档 news_id={news_id}, fuid={fuid}", flush=True)
                     await bot.send_message(x_man_bot_id, fuid)
                     await asyncio.sleep(1)
+                    await db.add_retry_count_for_news_id(news_id)
                 except Exception as e:
                     print(f"⚠️ 发送请求给 {x_man_bot_id} 失败: {e}", flush=True)
                     # 失败也清掉挂起，避免僵尸条目

@@ -111,7 +111,7 @@ class NewsDatabase:
             sql = """
             UPDATE news_content
             SET file_id = $1
-            WHERE bot_name = $2 AND thumb_file_unique_id LIKE $3;
+            WHERE bot_name = $2 AND thumb_file_unique_id = $3;
             """
             # print("EXEC:", sql, "PARAMS:", (file_id, bot_username, thumb_file_unique_id))
 
@@ -183,7 +183,7 @@ class NewsDatabase:
                 SELECT id, thumb_file_unique_id
                 FROM news_content
                 WHERE file_id IS NULL
-                AND thumb_file_unique_id IS NOT NULL
+                AND thumb_file_unique_id IS NOT NULL AND retry < 3
                 ORDER BY RANDOM() 
                 LIMIT $1;
                 """,
@@ -315,3 +315,18 @@ class NewsDatabase:
                 user_ref_id
             )
             print(f"🗑️ 已删除 user_ref_id={user_ref_id} 的 news_send_queue 记录", flush=True)
+
+    async def add_retry_count_for_news_id(
+            self,            
+            news_id: int,
+        ) -> None:
+            """按 id 增加重试次数"""
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    UPDATE news_content
+                    SET retry = retry+1
+                    WHERE id = $1
+                    """,
+                    news_id,
+                )
