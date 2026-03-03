@@ -46,6 +46,149 @@ class NewsDatabase:
             NewsDatabase._pool = None
             self.pool = None
 
+    async def ensure_schema(self) -> None:
+        """
+        启动时幂等建表/建索引/补字段：
+        - send_state enum
+        - sequences: news_content_id_seq / news_send_queue_id_seq / news_user_id_seq
+        - tables: news_content / news_send_queue / news_user
+        - columns: news_content.retry
+        - indexes/unique indexes
+        """
+        if self.pool is None:
+            raise RuntimeError("DB pool not initialized. Call await db.init() first.")
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                # 1) enum type: send_state
+                await conn.execute(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'send_state') THEN
+                            CREATE TYPE public.send_state AS ENUM ('pending','sent','failed');
+                        END IF;
+                    END$$;
+                    """
+                )
+
+                # 2) sequences (match your DEFAULT nextval('...'))
+                await conn.execute("CREATE SEQUENCE IF NOT EXISTS public.news_content_id_seq;")
+                await conn.execute("CREATE SEQUENCE IF NOT EXISTS public.news_send_queue_id_seq;")
+                await conn.execute("CREATE SEQUENCE IF NOT EXISTS public.news_user_id_seq;")
+
+                # 3) tables
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS public.news_content
+                    (
+                        id integer NOT NULL DEFAULT nextval('public.news_content_id_seq'::regclass),
+                        title character varying NOT NULL,
+                        text text,
+                        file_id character varying,
+                        file_type character varying,
+                        button_str text,
+                        created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                        bot_name character varying(30),
+                        business_type character varying(30),
+                        content_id bigint,
+                        retry integer DEFAULT 0,
+                        thumb_file_unique_id character varying(100),
+                        CONSTRAINT news_content_pkey PRIMARY KEY (id),
+                        CONSTRAINT news_content_file_unique_id_key UNIQUE (thumb_file_unique_id)
+                    );
+                    """
+                )
+
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS public.news_user
+                    (
+                        id integer NOT NULL DEFAULT nextval('public.news_user_id_seq'::regclass),
+                        user_id bigint NOT NULL,
+                        business_type character varying(30) NOT NULL,
+                        created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                        last_sent_at timestamp without time zone,
+                        expire_at timestamp without time zone,
+                        CONSTRAINT news_user_pkey PRIMARY KEY (id),
+                        CONSTRAINT news_user_user_id_business_type_key UNIQUE (user_id, business_type)
+                    );
+                    """
+                )
+
+                await conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS public.news_send_queue
+                    (
+                        id integer NOT NULL DEFAULT nextval('public.news_send_queue_id_seq'::regclass),
+                        user_ref_id integer NOT NULL,
+                        news_id integer NOT NULL,
+                        bot_id integer,
+                        state public.send_state DEFAULT 'pending'::public.send_state,
+                        retry_count integer DEFAULT 0,
+                        last_try_at timestamp without time zone,
+                        sent_at timestamp without time zone,
+                        fail_reason text,
+                        created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT news_send_queue_pkey PRIMARY KEY (id),
+                        CONSTRAINT news_send_queue_user_ref_id_news_id_key UNIQUE (user_ref_id, news_id),
+                        CONSTRAINT news_send_queue_news_id_fkey FOREIGN KEY (news_id)
+                            REFERENCES public.news_content (id)
+                            ON UPDATE NO ACTION
+                            ON DELETE CASCADE,
+                        CONSTRAINT news_send_queue_user_ref_id_fkey FOREIGN KEY (user_ref_id)
+                            REFERENCES public.news_user (id)
+                            ON UPDATE NO ACTION
+                            ON DELETE CASCADE
+                    );
+                    """
+                )
+
+
+
+                # 5) indexes / unique indexes
+                # (a) ensure logical dedupe key for news: (business_type, content_id)
+                await conn.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS ux_news_content_business_contentid
+                    ON public.news_content (business_type, content_id);
+                    """
+                )
+
+                # (b) send_queue indexes (you already had state/state+bot/user_ref; add (state, created_at desc))
+                await conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_send_queue_state
+                    ON public.news_send_queue (state);
+                    """
+                )
+                await conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_send_queue_state_bot
+                    ON public.news_send_queue (state, bot_id);
+                    """
+                )
+                await conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_send_queue_user_ref
+                    ON public.news_send_queue (user_ref_id);
+                    """
+                )
+                await conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_send_queue_state_createdat
+                    ON public.news_send_queue (state, created_at DESC);
+                    """
+                )
+
+                # (c) optional: speed up UPDATE news_content by (bot_name, thumb_file_unique_id) if you keep that WHERE
+                await conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_news_content_bot_fuid
+                    ON public.news_content (bot_name, thumb_file_unique_id);
+                    """
+                )
+
     # ------------------------
     # 新闻内容 CRUD
     # ------------------------

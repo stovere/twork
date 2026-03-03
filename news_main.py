@@ -338,6 +338,7 @@ async def keep_alive_ping():
 
 async def main():
     await db.init()
+    await db.ensure_schema()
     global bot
     me = await bot.get_me()
     print(f'你的用户名: {me.username}',flush=True)

@@ -12,7 +12,9 @@ import pymysql
 # Check if running in a local development environment
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
-    load_dotenv(dotenv_path='.28817994.get_account.env')
+    # load_dotenv(dotenv_path='.28817994.get_account.env')
+    load_dotenv(dotenv_path='.25195066.get_account.env')
+
     # load_dotenv(dotenv_path='.20100034.sungfong.env')
     # load_dotenv(dotenv_path='.24066130.decode.env')
     # load_dotenv(dotenv_path='.25506053.jjl.env')
@@ -23,7 +25,7 @@ if not os.getenv('GITHUB_ACTIONS'):
     # load_dotenv(dotenv_path='.env')
     # load_dotenv(dotenv_path='.24690454.queue.env')
     # 
-    
+   
 
 config = {
     'api_id': os.getenv('API_ID',''),
