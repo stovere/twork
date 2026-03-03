@@ -180,122 +180,125 @@ def sync_media_to_postgres(content_id, media_rows):
 
 def process_documents():
     # DB_MYSQL.connect()
-    ensure_connection()  # ✅ 推荐写法
+   
 
 
     print("\n🚀 开始同步 stage != 'updated' 的 document 到 PostgreSQL...",flush=True)
-    for doc in Document.select().where((Document.kc_status.is_null(True)) | (Document.kc_status != 'updated')).limit(BATCH_LIMIT):
-        if not doc.file_name and not doc.caption:
+    with DB_MYSQL.atomic():
+        for doc in Document.select().where((Document.kc_status.is_null(True)) | (Document.kc_status != 'updated')).limit(BATCH_LIMIT):
+            if not doc.file_name and not doc.caption:
+                doc.kc_status = 'updated'
+                doc.save()
+                continue
+
+            jieba.load_userdict("jieba_userdict.txt")
+            # 文本清洗与分词
+            file_name = LZString.extract_meaningful_name(doc.file_name or '') or ''
+            content = LZString.clean_text(f"{file_name}\n{doc.caption or ''}")
+            content_seg = segment_text(content)
+
+            # 标签分词追加
+            tag_seg = ''
+            tag_cn_list = fetch_tag_cn_for_file(doc.file_unique_id)
+            if tag_cn_list:
+                tag_seg = ' '.join(f'#{tag}' for tag in tag_cn_list)
+                content_seg += " " + " ".join(tag_cn_list)
+
+
+            # print(f"Processing {doc.file_unique_id}",flush=True)
+
+            tw2s = OpenCC('tw2s')
+            content_seg = tw2s.convert(content_seg)
+
+            # 统一记录数据
+            record_data = {
+                'source_id': doc.file_unique_id,
+                'file_type': 'd',
+                'tag': tag_seg,
+                'content': content,
+                'content_seg': content_seg,
+                'file_size': doc.file_size
+            }
+
+            # 使用 get_or_create 保证唯一性，避免 Duplicate
+            kw, created = SoraContent.get_or_create(source_id=doc.file_unique_id, defaults=record_data)
+
+            if not created:
+                # 已存在，更新字段
+                for key, value in record_data.items():
+                    setattr(kw, key, value)
+                kw.save()
+
+            # 更新 Document 记录
+            doc.kc_id = kw.id
             doc.kc_status = 'updated'
             doc.save()
-            continue
 
-        jieba.load_userdict("jieba_userdict.txt")
-        # 文本清洗与分词
-        file_name = LZString.extract_meaningful_name(doc.file_name or '') or ''
-        content = LZString.clean_text(f"{file_name}\n{doc.caption or ''}")
-        content_seg = segment_text(content)
+            # 同步 PostgreSQL
+            if SYNC_TO_POSTGRES and kw.id:
+                sync_to_postgres(kw)
 
-        # 标签分词追加
-        tag_seg = ''
-        tag_cn_list = fetch_tag_cn_for_file(doc.file_unique_id)
-        if tag_cn_list:
-            tag_seg = ' '.join(f'#{tag}' for tag in tag_cn_list)
-            content_seg += " " + " ".join(tag_cn_list)
-
-
-        # print(f"Processing {doc.file_unique_id}",flush=True)
-
-        tw2s = OpenCC('tw2s')
-        content_seg = tw2s.convert(content_seg)
-
-        # 统一记录数据
-        record_data = {
-            'source_id': doc.file_unique_id,
-            'file_type': 'd',
-            'tag': tag_seg,
-            'content': content,
-            'content_seg': content_seg,
-            'file_size': doc.file_size
-        }
-
-        # 使用 get_or_create 保证唯一性，避免 Duplicate
-        kw, created = SoraContent.get_or_create(source_id=doc.file_unique_id, defaults=record_data)
-
-        if not created:
-            # 已存在，更新字段
-            for key, value in record_data.items():
-                setattr(kw, key, value)
-            kw.save()
-
-        # 更新 Document 记录
-        doc.kc_id = kw.id
-        doc.kc_status = 'updated'
-        doc.save()
-
-        # 同步 PostgreSQL
-        if SYNC_TO_POSTGRES and kw.id:
-            sync_to_postgres(kw)
-
-    DB_MYSQL.close()
+   
 
 
 
 def process_videos():
-    ensure_connection()  # ✅ 推荐写法
+   
     # DB_MYSQL.connect()
 
 
     print("\n🚀 开始同步 stage != 'updated' 的 video 到 PostgreSQL...")
-    for doc in Video.select().where((Video.kc_status.is_null(True)) | (Video.kc_status != 'updated')).limit(BATCH_LIMIT):
-        if not doc.file_name and not doc.caption:
+    with DB_MYSQL.atomic():
+        for doc in Video.select().where((Video.kc_status.is_null(True)) | (Video.kc_status != 'updated')).limit(BATCH_LIMIT):
+            if not doc.file_name and not doc.caption:
+                doc.kc_status = 'updated'
+                doc.save()
+                continue
+
+            tag_seg = ''
+            file_name = LZString.extract_meaningful_name(doc.file_name or '') or ''
+            content = LZString.clean_text(f"{file_name or ''}\n{doc.caption or ''}")
+            
+            content_seg = segment_text(content)
+            tag_cn_list = fetch_tag_cn_for_file(doc.file_unique_id)
+            if tag_cn_list:
+                tag_seg = ' '.join(f'#{tag}' for tag in tag_cn_list)
+                content_seg += " " + " ".join(tag_cn_list)
+
+            print(f"Processing {doc.file_unique_id}",flush=True)
+
+            tw2s = OpenCC('tw2s')
+            content_seg = tw2s.convert(content_seg)
+
+            record_data = {
+                'source_id': doc.file_unique_id,
+                'file_type': 'v',
+                'content': content,
+                'tag': tag_seg,
+                'content_seg': content_seg,
+                'file_size': doc.file_size,
+                'duration': doc.duration
+            }
+
+            kw, created = SoraContent.get_or_create(source_id=doc.file_unique_id, defaults=record_data)
+
+            if not created:
+                for key, value in record_data.items():
+                    setattr(kw, key, value)
+                kw.save()
+
+            # print(f"  🔄 更新 MySQL sora_content [{kw}]",flush=True)
+
+            # print(kw.__data__)
+
+            doc.kc_id = kw.id
             doc.kc_status = 'updated'
             doc.save()
-            continue
 
-        tag_seg = ''
-        file_name = LZString.extract_meaningful_name(doc.file_name or '') or ''
-        content = LZString.clean_text(f"{file_name or ''}\n{doc.caption or ''}")
-        content_seg = segment_text(content)
-        tag_cn_list = fetch_tag_cn_for_file(doc.file_unique_id)
-        if tag_cn_list:
-            tag_seg = ' '.join(f'#{tag}' for tag in tag_cn_list)
-            content_seg += " " + " ".join(tag_cn_list)
+            if SYNC_TO_POSTGRES and kw.id:
+                sync_to_postgres(kw)
 
-        print(f"Processing {doc.file_unique_id}",flush=True)
-
-        tw2s = OpenCC('tw2s')
-        content_seg = tw2s.convert(content_seg)
-
-        record_data = {
-            'source_id': doc.file_unique_id,
-            'file_type': 'v',
-            'content': content,
-            'tag': tag_seg,
-            'content_seg': content_seg,
-            'file_size': doc.file_size,
-            'duration': doc.duration
-        }
-
-        kw, created = SoraContent.get_or_create(source_id=doc.file_unique_id, defaults=record_data)
-
-        if not created:
-            for key, value in record_data.items():
-                setattr(kw, key, value)
-            kw.save()
-
-        # print(f"  🔄 更新 MySQL sora_content [{kw}]",flush=True)
-
-        # print(kw.__data__)
-
-        doc.kc_id = kw.id
-        doc.kc_status = 'updated'
-        doc.save()
-
-        if SYNC_TO_POSTGRES and kw.id:
-            sync_to_postgres(kw)
-
-    DB_MYSQL.close()
+  
 
 
 
@@ -370,7 +373,7 @@ def parse_bj_tag_for_file(tag_str):
 
 def process_scrap():
     # DB_MYSQL.connect()
-    ensure_connection()  # ✅ 推荐写法
+    
 
 
     print("\n🚀 开始同步 stage != 'updated' 的 scrap 到 PostgreSQL...")
@@ -444,12 +447,12 @@ def process_scrap():
             sync_media_to_postgres(scrap.kc_id, media_data)
             print("🚀 同步到 PostgreSQL 完成")
 
-    DB_MYSQL.close()
+  
 
 
 def process_sora_update():
     import time
-    ensure_connection()  # ✅ 推荐写法
+   
     # DB_MYSQL.connect()
 
 
@@ -526,7 +529,7 @@ def process_sora_update():
             sync_media_to_postgres(sora_content.id, media_data)
             print("🚀 同步到 PostgreSQL 完成",flush=True)
 
-    DB_MYSQL.close()
+   
 
 
 def sync_pending_sora_to_postgres():
@@ -537,7 +540,7 @@ def sync_pending_sora_to_postgres():
     print("\n🚀 开始同步 stage = 'pending' 的 sora_content 到 PostgreSQL...", flush=True)
     from playhouse.shortcuts import model_to_dict
 
-    ensure_connection()  # ✅ MySQL 连接/保活
+   
 
     # ✅ 关键：复用已开启连接；如果外部已 connect，这里不会报错
     DB_PG.connect(reuse_if_open=True)
@@ -568,7 +571,7 @@ def sync_pending_sora_to_postgres():
         row.save()
 
     # ❗不要在这里 close DB_PG（交给 __main__ finally 统一关）
-    DB_MYSQL.close()
+
 
 
 def sync_pending_sora_to_postgres2():
@@ -580,7 +583,7 @@ def sync_pending_sora_to_postgres2():
     from playhouse.shortcuts import model_to_dict
 
     # DB_MYSQL.connect()
-    ensure_connection()  # ✅ 推荐写法
+    
     DB_PG.connect()
 
     rows = SoraContent.select().where(SoraContent.stage == "pending").limit(BATCH_LIMIT)
@@ -610,7 +613,7 @@ def sync_pending_sora_to_postgres2():
         # print(f"📝 已更新：source_id{row.source_id} =>MySQL sora_content.stage = 'updated'",flush=True)
 
 
-    DB_MYSQL.close()
+   
     DB_PG.close()
 
 def sync_pending_product_to_postgres_old():
@@ -623,7 +626,7 @@ def sync_pending_product_to_postgres_old():
     from playhouse.shortcuts import model_to_dict
 
     # DB_MYSQL.connect()
-    ensure_connection()  # ✅ 推荐写法
+   
     DB_PG.connect()
 
     rows = Product.select().where(Product.stage == "pending").limit(BATCH_LIMIT)
@@ -677,7 +680,7 @@ def sync_pending_product_to_postgres_old():
         # print(f"📝 已更新：content_id{row.content_id} =>MySQL Product.stage = 'updated'",flush=True)
 
 
-    DB_MYSQL.close()
+ 
     DB_PG.close()
 
 
@@ -691,7 +694,7 @@ def sync_pending_product_to_postgres():
     print("\n🚀 开始同步 stage = 'pending' 的 product 到 PostgreSQL...", flush=True)
     from playhouse.shortcuts import model_to_dict
 
-    ensure_connection()
+    
     DB_PG.connect(reuse_if_open=True)
 
     rows = Product.select().where(Product.stage == "pending").limit(BATCH_LIMIT)
@@ -788,7 +791,7 @@ def sync_pending_product_to_postgres2():
     print("\n🚀 开始同步 stage = 'pending' 的 product 到 PostgreSQL...", flush=True)
     from playhouse.shortcuts import model_to_dict
 
-    ensure_connection()  # ✅ 推荐写法
+ 
     DB_PG.connect()
 
     rows = Product.select().where(Product.stage == "pending").limit(BATCH_LIMIT)

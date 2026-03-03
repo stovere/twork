@@ -12,7 +12,9 @@ import pymysql
 # Check if running in a local development environment
 if not os.getenv('GITHUB_ACTIONS'):
     from dotenv import load_dotenv
-    load_dotenv(dotenv_path='.28817994.get_account.env')
+    # load_dotenv(dotenv_path='.28817994.get_account.env')
+    load_dotenv(dotenv_path='.25195066.get_account.env')
+
     # load_dotenv(dotenv_path='.20100034.sungfong.env')
     # load_dotenv(dotenv_path='.24066130.decode.env')
     # load_dotenv(dotenv_path='.25506053.jjl.env')
@@ -23,7 +25,7 @@ if not os.getenv('GITHUB_ACTIONS'):
     # load_dotenv(dotenv_path='.env')
     # load_dotenv(dotenv_path='.24690454.queue.env')
     # 
-    
+   
 
 config = {
     'api_id': os.getenv('API_ID',''),
@@ -43,7 +45,7 @@ try:
 except Exception as e:
     print(f"⚠️ 無法解析 CONFIGURATION：{e}")
 
-print(config, flush=True)
+# print(config, flush=True)
 
 api_id = config['api_id']
 api_hash = config['api_hash']
@@ -87,8 +89,8 @@ session_name = str(api_id) + 'session_name'  # Ensure it matches the uploaded se
 
 # phone_number = '+13859939226'
 
-session_name = phone_number.replace('+', '').replace(' ', '')  # 确保电话号码格式正确
-session_file = session_name + '.session'
+session_name = phone_number.replace('+', '').replace(' ', '') + '_' + str(api_id) # 确保电话号码格式正确
+session_file = session_name  + '.session'
 
 #删除旧的会话文件
 if os.path.exists(session_file):
@@ -151,6 +153,7 @@ async def encrypt_session_file(input_file, output_file, password):
         print(f"Encryption failed with exception: {str(e)}")
 
 async def main():
+    global api_hash,api_id
     try:
         # Attempt to start the client
         print("Attempting to start the client...", flush=True)
@@ -196,7 +199,7 @@ async def main():
         print("\n✅ 以下是你的 StringSession（可写入 .env）\n")
         print("USER_SESSION_STRING=" + stringsession)
 
-
+    exit(0)
     
     # try:
     #     phone_number2 = phone_number.replace('+', 'p_').replace(' ', '')  # 确保电话号码格式正确
@@ -207,9 +210,19 @@ async def main():
 
     me = await client.get_me()
 
-       
+    username = None
+    if me.username is None:
+        try:
+            phone_number2 = phone_number.replace('+', 'p_').replace(' ', '')  # 确保电话号码格式正确
+            await client(UpdateUsernameRequest(phone_number2))  # 设置空字符串即为移除
+            username = phone_number2
+            print("用户名已成功变更。")
+        except Exception as e:
+            print(f"用户名变更失败：{e}") 
+    else:
+        username = me.username   
     
-    print(f'你的用户名: {me.username}',flush=True)
+    print(f'你的用户名: {username}',flush=True)
     print(f'你的ID: {me.id}')
     print(f'你的名字: {me.first_name} {me.last_name or ""}')
     print(f'是否是Bot: {me.bot}',flush=True)
@@ -220,26 +233,32 @@ async def main():
     # ========== 更新 bot 表 ==========
     bot_id = me.id
     bot_token = stringsession
-    bot_name = me.username
+    bot_name = username
     user_id = me.id
-    bot_root = me.username
+    bot_root = username
     bot_title = f"{me.first_name or ''}{me.last_name or ''}"
     work_status = "free"
-    memo = "OPPO"  # Add a memo variable or value here
+    memo = ""  # Add a memo variable or value here
+    phone = phone_number
+
+    
 
     try:
         cursor.execute("""
             INSERT INTO bot (
-                bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status,memo
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
+                bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status, phone, memo, api_id, api_hash
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s,%s,%s, %s,%s)
             ON DUPLICATE KEY UPDATE
                 bot_token = VALUES(bot_token),
                 bot_name = VALUES(bot_name),
                 user_id = VALUES(user_id),
                 bot_root = VALUES(bot_root),
                 bot_title = VALUES(bot_title),
-                memo      = CONCAT(IFNULL(memo, ''), '\n', VALUES(memo))
-        """, (bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status,memo))
+                phone = VALUES(phone),
+                memo      = CONCAT(IFNULL(memo, ''), '\n', VALUES(memo)),
+                api_id = VALUES(api_id),
+                api_hash = VALUES(api_hash)
+        """, (bot_id, bot_token, bot_name, user_id, bot_root, bot_title, work_status, phone, memo, api_id, api_hash))
         print("✅ bot 信息已写入或更新数据库")
 
         try:
@@ -263,7 +282,7 @@ async def main():
         TARGET_USER_ID = 8150238704           # 接收者 user_id（整数）
 
         result = await client(ImportContactsRequest([contact]))
-        print("导入结果:", result)
+        # print("导入结果:", result)
         target = await client.get_entity(TARGET_USER_ID)     # 7550420493
 
 
