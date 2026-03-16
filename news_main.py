@@ -367,6 +367,7 @@ async def main():
         port = int(os.environ.get("PORT", 8080))
         await web._run_app(app, host="0.0.0.0", port=port)
     else:
+        await bot.delete_webhook(drop_pending_updates=True)
         loop = asyncio.get_event_loop()
         loop.create_task(periodic_sender(db))
         await dp.start_polling(
